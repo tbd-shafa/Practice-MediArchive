@@ -165,7 +165,12 @@ export default function HomePage() {
                   />
                 </div>
                 <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-800">{patient.name}</h3>
+                  <h3 
+                    onClick={() => router.push(`/home/patient/${patient.id}`)}
+                    className="text-lg font-semibold text-gray-800 hover:text-blue-600 cursor-pointer"
+                  >
+                    {patient.name}
+                  </h3>
                   <p className="text-sm text-gray-500">{new Date(patient.created_at).toLocaleDateString()}</p>
                 </div>
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
