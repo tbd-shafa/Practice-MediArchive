@@ -11,12 +11,34 @@ interface Patient {
   name: string;
   profile_picture: string;
 }
+interface BloodPressureRecord {
+  systolic: number;
+  diastolic: number;
+  bpm: number;
+  time: string;
+  date: string;
+}
 
 export default function PatientDetails({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('blood_pressure');
+  const [bloodPressureData, setBloodPressureData] = useState<BloodPressureRecord[]>([]);
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0], // 1 month ago
+    endDate: new Date().toISOString().split('T')[0] // today
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    message: string;
+    type: "success" | "error" | "info";
+  }>({
+    show: false,
+    message: "",
+    type: "info",
+  });
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -44,9 +66,37 @@ export default function PatientDetails({ params }: { params: { id: string } }) {
         setLoading(false);
       }
     };
+    const fetchBloodPressureData = async () => {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        router.push('/');
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `http://192.168.50.88:8000/v1/patients_blood_pressure/list/${params.id}/?offset=0&limit=10&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'accept': 'application/json',
+            },
+          }
+        );
+
+        const data = await response.json();
+      
+        if (response.ok && data.status === 'success') {
+          setBloodPressureData(data.data.bp_records);
+        }
+      } catch (error) {
+        console.error('Error fetching blood pressure data:', error);
+      }
+    };
 
     fetchPatientData();
-  }, [params.id, router]);
+    fetchBloodPressureData();
+  }, [dateRange.startDate, dateRange.endDate, params.id, router]);
 
   if (loading) {
     return (
@@ -202,76 +252,118 @@ export default function PatientDetails({ params }: { params: { id: string } }) {
                       <div className="flex space-x-4 mt-2">
                         <div>
                           <div className="text-sm text-gray-500">Start Date</div>
-                          <div className="font-medium">7 Oct 2024</div>
+                          <div className="font-medium">
+                            {new Date(dateRange.startDate).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </div>
                         </div>
                         <div>
                           <div className="text-sm text-gray-500">End Date</div>
-                          <div className="font-medium">15 Oct 2024</div>
+                          <div className="font-medium">
+                            {new Date(dateRange.endDate).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                    <button 
+                      onClick={() => setShowDatePicker(!showDatePicker)}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
                       Change
                     </button>
                   </div>
+                  
+                  {/* Date Picker */}
+                  {showDatePicker && (
+                    <div className="mt-4 p-4 bg-white rounded-lg shadow-sm">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Start Date
+                          </label>
+                          <input
+                            type="date"
+                            value={dateRange.startDate}
+                            onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            End Date
+                          </label>
+                          <input
+                            type="date"
+                            value={dateRange.endDate}
+                            min={dateRange.startDate}
+                            onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          onClick={() => setShowDatePicker(false)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Timeline */}
                 <div className="space-y-6">
                   <h4 className="text-lg font-medium mb-4">Timeline</h4>
                   
-                  {/* Timeline Items */}
-                  <div className="relative pl-8 pb-6 border-l-2 border-blue-200">
-                    {/* Date Point */}
-                    <div className="absolute left-0 transform -translate-x-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                  {bloodPressureData.length === 0 ? (
+                    <div className="text-center text-gray-500 py-8">
+                      No blood pressure records found
                     </div>
-                    
-                    {/* Reading */}
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <div className="text-sm font-medium text-blue-600 mb-2">2022, July 08</div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <div className="text-sm text-gray-500">Systolic</div>
-                          <div className="font-medium">110</div>
+                  ) : (
+                    bloodPressureData.map((record, index) => (
+                      <div key={index} className="relative pl-8 pb-6 border-l-2 border-blue-200">
+                        {/* Date Point */}
+                        <div className="absolute left-0 transform -translate-x-1/2 -translate-y-1/2">
+                          <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
                         </div>
-                        <div>
-                          <div className="text-sm text-gray-500">Diastolic</div>
-                          <div className="font-medium">83</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-500">BPM</div>
-                          <div className="font-medium">72</div>
+                        
+                        {/* Reading */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <div className="text-sm font-medium text-blue-600 mb-2">
+                            {new Date(record.date).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </div>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <div className="text-sm text-gray-500">Systolic</div>
+                              <div className="font-medium">{record.systolic}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-500">Diastolic</div>
+                              <div className="font-medium">{record.diastolic}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-500">BPM</div>
+                              <div className="font-medium">{record.bpm}</div>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-500 mt-2">{record.time}</div>
                         </div>
                       </div>
-                      <div className="text-sm text-gray-500 mt-2">12:05 am</div>
-                    </div>
-                  </div>
-
-                  {/* More Timeline Items */}
-                  <div className="relative pl-8 pb-6 border-l-2 border-blue-200">
-                    <div className="absolute left-0 transform -translate-x-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <div className="text-sm font-medium text-blue-600 mb-2">2022, July 07</div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <div className="text-sm text-gray-500">Systolic</div>
-                          <div className="font-medium">125</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-500">Diastolic</div>
-                          <div className="font-medium">89</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-500">BPM</div>
-                          <div className="font-medium">77</div>
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-500 mt-2">8:30 am</div>
-                    </div>
-                  </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
