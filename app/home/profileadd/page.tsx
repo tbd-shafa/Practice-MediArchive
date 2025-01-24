@@ -22,7 +22,11 @@ export default function AddPatientProfile() {
       message: "",
       type: "info",
     });
-   
+    const token = localStorage.getItem('access_token');
+      if (!token) {
+        router.push('/');
+        return;
+      }
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setprofile_picture(e.target.files[0]);
