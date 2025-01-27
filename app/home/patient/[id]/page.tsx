@@ -5,12 +5,19 @@ import Image from 'next/image';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Notification from '@/components/Notification';
+import BloodPressure from '@/components/patient/BloodPressure';
+import Glucose from '@/components/patient/Glucose';
+import Prescription from '@/components/patient/Prescription';
+import LabReports from '@/components/patient/LabReports';
+import Medicines from '@/components/patient/Medicines';
+import Notes from '@/components/patient/Notes';
 
 interface Patient {
   id: number;
   name: string;
   profile_picture: string;
 }
+
 interface BloodPressureRecord {
   systolic: number;
   diastolic: number;
@@ -25,9 +32,14 @@ export default function PatientDetails({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('blood_pressure');
   const [bloodPressureData, setBloodPressureData] = useState<BloodPressureRecord[]>([]);
+  const [glucoseData, setGlucoseData] = useState([]);
+  const [prescriptionData, setPrescriptionData] = useState([]);
+  const [labReportsData, setLabReportsData] = useState([]);
+  const [medicinesData, setMedicinesData] = useState([]);
+  const [notesData, setNotesData] = useState([]);
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0], // 1 month ago
-    endDate: new Date().toISOString().split('T')[0] // today
+    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0]
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [notification, setNotification] = useState<{
@@ -142,6 +154,10 @@ export default function PatientDetails({ params }: { params: { id: string } }) {
                 alt={patient.name}
                 width={96}
                 height={96}
+                quality={100}
+                loading="lazy"
+                placeholder="blur"
+                blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDABQODxIPDRQSEBIXFRQdHx4eHRoaHSQrJyEwPENBMDQ4NDQ0QUJCSkNLS0tNRkZGVFpUVFxcXEdnZXaDS1xqcGj/2wBDARUXFyAeIBogHB4gICBoRjAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                 className="w-full h-full object-cover"
               />
             </div>
@@ -230,150 +246,56 @@ export default function PatientDetails({ params }: { params: { id: string } }) {
           {/* Content Area */}
           <div className="p-6">
             {activeTab === 'blood_pressure' && (
-              <div>
-                {/* Blood Pressure Header */}
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                    </svg>
-                    <h3 className="text-lg font-semibold">Blood Pressure</h3>
-                  </div>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm hover:bg-blue-700">
-                    + Add
-                  </button>
-                </div>
-
-                {/* Date Range */}
-                <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600">Date Range</h4>
-                      <div className="flex space-x-4 mt-2">
-                        <div>
-                          <div className="text-sm text-gray-500">Start Date</div>
-                          <div className="font-medium">
-                            {new Date(dateRange.startDate).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-500">End Date</div>
-                          <div className="font-medium">
-                            {new Date(dateRange.endDate).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => setShowDatePicker(!showDatePicker)}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    >
-                      Change
-                    </button>
-                  </div>
-                  
-                  {/* Date Picker */}
-                  {showDatePicker && (
-                    <div className="mt-4 p-4 bg-white rounded-lg shadow-sm">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Start Date
-                          </label>
-                          <input
-                            type="date"
-                            value={dateRange.startDate}
-                            onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            End Date
-                          </label>
-                          <input
-                            type="date"
-                            value={dateRange.endDate}
-                            min={dateRange.startDate}
-                            onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-4 flex justify-end">
-                        <button
-                          onClick={() => setShowDatePicker(false)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                        >
-                          Done
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Timeline */}
-                <div className="space-y-6">
-                  <h4 className="text-lg font-medium mb-4">Timeline</h4>
-                  
-                  {bloodPressureData.length === 0 ? (
-                    <div className="text-center text-gray-500 py-8">
-                      No blood pressure records found
-                    </div>
-                  ) : (
-                    bloodPressureData.map((record, index) => (
-                      <div key={index} className="relative pl-8 pb-6 border-l-2 border-blue-200">
-                        {/* Date Point */}
-                        <div className="absolute left-0 transform -translate-x-1/2 -translate-y-1/2">
-                          <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                        </div>
-                        
-                        {/* Reading */}
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="text-sm font-medium text-blue-600 mb-2">
-                            {new Date(record.date).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                          </div>
-                          <div className="grid grid-cols-3 gap-4">
-                            <div>
-                              <div className="text-sm text-gray-500">Systolic</div>
-                              <div className="font-medium">{record.systolic}</div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-500">Diastolic</div>
-                              <div className="font-medium">{record.diastolic}</div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-500">BPM</div>
-                              <div className="font-medium">{record.bpm}</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-500 mt-2">{record.time}</div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              <BloodPressure
+                patientId={params.id}
+                bloodPressureData={bloodPressureData}
+                dateRange={dateRange}
+                onDateRangeChange={(startDate, endDate) => 
+                  setDateRange({ startDate, endDate })
+                }
+              />
             )}
-
-            {/* Other tab contents would go here */}
+            {activeTab === 'glucose' && (
+              <Glucose
+                patientId={params.id}
+                glucoseData={glucoseData}
+              />
+            )}
+            {activeTab === 'prescription' && (
+              <Prescription
+                patientId={params.id}
+                prescriptionData={prescriptionData}
+              />
+            )}
+            {activeTab === 'lab_reports' && (
+              <LabReports
+                patientId={params.id}
+                labReports={labReportsData}
+              />
+            )}
+            {activeTab === 'medicines' && (
+              <Medicines
+                patientId={params.id}
+                medicines={medicinesData}
+              />
+            )}
+            {activeTab === 'notes' && (
+              <Notes
+                patientId={params.id}
+                notes={notesData}
+              />
+            )}
           </div>
         </div>
       </main>
-
       <Footer />
+      {notification.show && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification({ ...notification, show: false })}
+        />
+      )}
     </div>
   );
 }
