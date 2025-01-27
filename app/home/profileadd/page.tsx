@@ -23,6 +23,7 @@ export default function AddPatientProfile() {
       type: "info",
     });
     const token = localStorage.getItem('access_token');
+    
       if (!token) {
         router.push('/');
         return;
@@ -34,7 +35,7 @@ export default function AddPatientProfile() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    console.log(1);
+   
     e.preventDefault();
     const formData = new FormData();
     formData.append('name', name);
@@ -48,12 +49,23 @@ export default function AddPatientProfile() {
     if (fileInput?.files?.[0]) {
       formData.append("profile_picture", fileInput.files[0]);
     }
+    // Retrieve token dynamically from localStorage
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setNotification({
+        show: true,
+        message: "User is not authenticated. Please log in again.",
+        type: "error",
+      });
+      router.push('/');
+      return;
+    }
 
     try {
       const response = await fetch('http://192.168.50.88:8000/v1/patients/', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMTk2MDk1MTYyOCIsImV4cCI6MTczNzgyMDAzNX0.qmHARtFUHUOob5SjfknsxJBjCUuFuG9uUPUdcai0fys',
+          'Authorization': `Bearer ${token}`,
           'accept': 'application/json',
         },
         body: formData,
