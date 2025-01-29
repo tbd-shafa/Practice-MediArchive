@@ -1,7 +1,7 @@
 "use client";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 interface PackageValues {
@@ -55,11 +55,19 @@ interface UserProfile {
 }
 
 export default function Profile() {
+  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem('access_token');
+   
+    if (!token) {
+      router.push('/');
+      return;
+    }
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem('access_token');
