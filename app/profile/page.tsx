@@ -154,7 +154,7 @@ export default function Profile() {
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-lg font-semibold">{profile.package.name} [{profile.package.package_type}]</h3>
-                  <p className="mt-2">${profile.package.amount} / month</p>
+                  <p className="mt-2">${profile.package.amount} / {profile.package.duration_type}</p>
                   <p className="text-sm mt-1">{profile.package.status.toUpperCase()}</p>
                 </div>
               </div>
