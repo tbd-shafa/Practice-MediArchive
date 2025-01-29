@@ -93,6 +93,7 @@ export default function Profile() {
   return (
    <div className="min-h-screen bg-gray-50">
          <Navbar />
+    <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-bold mb-6">My Profile</h1>
         
@@ -155,6 +156,7 @@ export default function Profile() {
           
         </div>
       </div>
+      </main>
       <Footer />
     </div>
   );
