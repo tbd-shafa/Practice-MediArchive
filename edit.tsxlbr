@@ -466,9 +466,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         const filePromises = parsedImages.map(async (imageUrl: string) => {
           const response = await fetch(imageUrl);
           const blob = await response.blob();
-          return new File([blob], `image_${Date.now()}.jpg`, {
-            type: blob.type,
-          });
+          return new File([blob], `image_${Date.now()}.jpg`);
         });
 
         // Append parsed images to existing images
@@ -693,9 +691,18 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
     if (selectedTest_names.length === 0) {
       errors.test_names = "At least one test_name is required";
-
       hasError = true;
       toast.error("At least one Tag is required");
+    }
+
+    // Check if there are any images (either from API or uploaded)
+    const apiImages = formData.images.filter(img => img.id);
+    const uploadedImages = formData.images.filter(img => !img.id);
+
+    if (apiImages.length === 0 && uploadedImages.length === 0) {
+      errors.images = "At least one image is required";
+      hasError = true;
+      toast.error("At least one image is required");
     }
 
     if (hasError) {
@@ -709,13 +716,27 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         throw new Error("LabReport ID is required for update");
       }
 
+      // Convert base64 strings to File objects for uploaded images
+      const filePromises = uploadedImages.map(async (imageData) => {
+        try {
+          const response = await fetch(imageData);
+          const blob = await response.blob();
+          return new File([blob], `lab_report_${Date.now()}.jpg`);
+        } catch (error) {
+          console.error('Error converting base64 to File:', error);
+          return null;
+        }
+      });
+
+      const files = (await Promise.all(filePromises)).filter(file => file !== null) as File[];
+
       const response = await LabReportService.updateLabReport(
         labReportId,
         selectedDoctors[0].id,
         selectedDoctors[0].name,
         format(selectedDate, "yyyy-MM-dd"),
         selectedTest_names.map((s) => s.id),
-        uploadedFiles
+        files // Pass only the uploaded files
       );
 
       if (response.status === "success") {
@@ -724,6 +745,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         localStorage.removeItem("selectedTest_names");
         localStorage.removeItem("selectedDoctors");
         localStorage.removeItem("selectedDate");
+        localStorage.removeItem("removedLabReportApiImages");
 
         toast.success("LabReport updated successfully");
 
