@@ -1,35 +1,3 @@
-//update service start
-//update prescription
-    static async updateLabReport(
-      labReportId: string,
-      doctorId: number,
-      doctorName: string,
-      date: string,
-      test_nameIds: number[],
-      files: File[]
-    ): Promise<any> {
-      const formData = new FormData();
-      
-      formData.append("doctor_id", doctorId.toString());
-      formData.append("doctor", doctorName);
-      formData.append("date", date);
-      formData.append("test_name_ids", test_nameIds.join(","));
-  
-      // Append files if any
-      files.forEach((file) => {
-        formData.append("files", file);
-      });
-  
-      return await api.put(
-        `${config.API_ENDPOINTS.LAB_REPORT}/${labReportId}/`,
-        formData,
-        {
-          requiresAuth: true,
-         
-        }
-      );
-    }
-//update service end
 // import { FC, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -122,6 +90,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     return stored ? JSON.parse(stored) : [];
   });
 
+  const [removedApiTestNameIds, setRemovedApiTestNameIds] = useState<number[]>(() => {
+    const stored = localStorage.getItem('removedLabReportTestNames');
+    return stored ? JSON.parse(stored) : [];
+  });
+
   // Fetch lab report data on component mount
   useEffect(() => {
     const fetchLabReport = async () => {
@@ -171,12 +144,17 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
         // Set the selected test_names from the labreport data
         if (data.test_names && Array.isArray(data.test_names)) {
+          // Filter out removed API test names
+          const apiTestNames = data.test_names.filter(
+            (test: any) => !removedApiTestNameIds.includes(test.id)
+          );
+
           // Get any existing test_names from localStorage
           const storedTest_names = localStorage.getItem("selectedTest_names");
           const parsedStoredTest_names = storedTest_names ? JSON.parse(storedTest_names) : [];
           
-          // Combine API Test_names with any stored Test_names, removing duplicates
-          const combinedTest_names = [...data.test_names, ...parsedStoredTest_names].filter(
+          // Combine filtered API Test_names with stored Test_names, removing duplicates
+          const combinedTest_names = [...apiTestNames, ...parsedStoredTest_names].filter(
             (test_name, index, self) => 
               index === self.findIndex((s) => s.id === test_name.id)
           );
@@ -195,7 +173,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     };
 
     fetchLabReport();
-  }, [labReportId]);
+  }, [labReportId, removedApiTestNameIds]);
 
   // handle doctor selection start
   useEffect(() => {
@@ -656,11 +634,18 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   };
   // Modify removeTestName to update localStorage
   const removeTest_name = (test_nameId: number) => {
+    // Check if this is an API test name (exists in formData.test_names)
+    const isApiTestName = formData.test_names.some((test: any) => test.id === test_nameId);
+
+    if (isApiTestName) {
+      // Add to removed API test names
+      const newRemovedIds = [...removedApiTestNameIds, test_nameId];
+      setRemovedApiTestNameIds(newRemovedIds);
+      localStorage.setItem('removedLabReportTestNames', JSON.stringify(newRemovedIds));
+    }
+
     const updatedTest_names = selectedTest_names.filter((t) => t.id !== test_nameId);
-
     setSelectedTest_names(updatedTest_names);
-
-    // Update localStorage
     localStorage.setItem("selectedTest_names", JSON.stringify(updatedTest_names));
   };
   // handle Test_names end
@@ -778,6 +763,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         localStorage.removeItem("selectedDoctors");
         localStorage.removeItem("selectedDate");
         localStorage.removeItem("removedLabReportApiImages");
+        localStorage.removeItem("removedLabReportTestNames");
 
         toast.success("LabReport updated successfully");
 
