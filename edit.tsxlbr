@@ -1,3 +1,36 @@
+//service start
+//update prescription
+    static async updateLabReport(
+      labReportId: string,
+      doctorId: number,
+      doctorName: string,
+      date: string,
+      test_nameIds: number[],
+      files: File[]
+    ): Promise<any> {
+      const formData = new FormData();
+      
+      formData.append("doctor_id", doctorId.toString());
+      formData.append("doctor", doctorName);
+      formData.append("date", date);
+      formData.append("test_name_ids", test_nameIds.join(","));
+  
+      // Append files if any
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+  
+      return await api.put(
+        `${config.API_ENDPOINTS.LAB_REPORT}/${labReportId}/`,
+        formData,
+        {
+          requiresAuth: true,
+         
+        }
+      );
+    }
+//service end
+
 // import { FC, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -61,7 +94,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const storedDate = localStorage.getItem("selectedDate");
+    return storedDate ? new Date(storedDate) : new Date();
+  });
+
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
     localStorage.setItem("selectedDate", date.toISOString()); // Store the date in localStorage
@@ -163,7 +200,13 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           localStorage.setItem("selectedTest_names", JSON.stringify(combinedTest_names));
         }
 
-        setSelectedDate(new Date(data.date));
+        // Only set the date from API if there's no date in localStorage
+        const storedDate = localStorage.getItem("selectedDate");
+        if (!storedDate) {
+          setSelectedDate(new Date(data.date));
+          localStorage.setItem("selectedDate", new Date(data.date).toISOString());
+        }
+
         setLoading(false);
       } catch (error) {
         console.error("Failed to fetch labreport:", error);
