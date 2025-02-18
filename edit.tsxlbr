@@ -1,3 +1,35 @@
+//update service start
+//update prescription
+    static async updateLabReport(
+      labReportId: string,
+      doctorId: number,
+      doctorName: string,
+      date: string,
+      test_nameIds: number[],
+      files: File[]
+    ): Promise<any> {
+      const formData = new FormData();
+      
+      formData.append("doctor_id", doctorId.toString());
+      formData.append("doctor", doctorName);
+      formData.append("date", date);
+      formData.append("test_name_ids", test_nameIds.join(","));
+  
+      // Append files if any
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+  
+      return await api.put(
+        `${config.API_ENDPOINTS.LAB_REPORT}/${labReportId}/`,
+        formData,
+        {
+          requiresAuth: true,
+         
+        }
+      );
+    }
+//update service end
 // import { FC, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
