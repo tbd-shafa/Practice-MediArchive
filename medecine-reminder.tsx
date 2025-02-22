@@ -25,6 +25,104 @@ const MedicineReminder = dynamic(() => import("./medicine/reminder"), {
       const { medicineid } = router.query;
       return <MedicineReminder patientId={id} medicineId={medicineid as string} />;
     }
+<Link href="/UserProfile">
+  <div style={{ position: 'relative', width: '160px', height: '216px' }}>
+    {/* Loading Placeholder */}
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f8f9fa',
+      borderRadius: '8px',
+      zIndex: 1
+    }}>
+      <div className="spinner-border text-primary" style={{ width: '2rem', height: '2rem' }} role="status">
+        <span className="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    {patient?.profile_picture ? (
+      <img
+        src={patient.profile_picture}
+        alt={patient.name}
+        width={160}
+        height={216}
+        style={{
+          objectFit: 'cover',
+          borderRadius: '8px',
+          position: 'relative',
+          zIndex: 1
+        }}
+        onLoad={(e) => {
+          // Hide loader when image loads
+          const target = e.target as HTMLImageElement;
+          //target.style.zIndex = 2;
+        }}
+      />
+    ) : (
+      <Image
+        src="/images/placeholder-patient.svg"
+        alt="User"
+        width={80}
+        height={80}
+        style={{
+          objectFit: 'contain',
+          borderRadius: '8px',
+          position: 'relative',
+          zIndex: 2
+        }}
+      />
+    )}
+
+    <div className="patient-view-sidebar-header-avatar-icon" style={{ zIndex: 3 }}>
+      <svg
+        id="Group_3366"
+        data-name="Group 3366"
+        xmlns="http://www.w3.org/2000/svg"
+        width="29"
+        height="23.586"
+        viewBox="0 0 29 23.586"
+      >
+        <defs>
+          <clipPath id="clip-path">
+            <rect
+              id="Rectangle_952"
+              data-name="Rectangle 952"
+              width="29"
+              height="23.586"
+              fill="#1a72e8"
+            />
+          </clipPath>
+        </defs>
+        <g
+          id="Group_3365"
+          data-name="Group 3365"
+          clip-path="url(#clip-path)"
+        >
+          <path
+            id="Path_4576"
+            data-name="Path 4576"
+            d="M63.581,11.152a.906.906,0,0,0-1.282,0l-1.172,1.172v-.53A11.8,11.8,0,0,0,49.359,0h-.013a11.733,11.733,0,0,0-9.9,5.4.906.906,0,0,0,1.524.982,9.927,9.927,0,0,1,8.38-4.57h.011a9.98,9.98,0,0,1,9.958,9.981v.531l-1.172-1.172a.906.906,0,1,0-1.282,1.282l2.719,2.719.019.017c.015.014.031.029.047.042l.037.028.034.025.042.026.034.02.043.021.038.017.042.015.042.015L60,15.39l.044.011.048.007.04.006c.03,0,.06,0,.089,0s.06,0,.089,0l.04-.006L60.4,15.4l.044-.011.042-.011.042-.015.042-.015.038-.017.043-.021.034-.02.042-.026.034-.025.037-.028c.016-.013.032-.028.047-.042l.019-.017,2.719-2.719a.906.906,0,0,0,0-1.282"
+            transform="translate(-34.847)"
+            fill="#1a72e8"
+          />
+          <path
+            id="Path_4577"
+            data-name="Path 4577"
+            d="M24.133,59.589a.906.906,0,0,0-1.253.271,10.087,10.087,0,0,1-.924,1.219,9,9,0,0,0-3.354-2.93c-.245-.124-.493-.234-.744-.335a5.438,5.438,0,1,0-6.713,0,9.029,9.029,0,0,0-4.1,3.261,9.9,9.9,0,0,1-2.515-6.629v-.531L5.7,55.09a.906.906,0,0,0,1.282-1.282L4.266,51.09a.9.9,0,0,0-.067-.061l-.029-.022-.042-.031-.037-.023-.039-.023-.039-.019-.041-.019-.038-.014-.045-.016-.039-.01L3.8,50.841l-.044-.007-.043-.006c-.026,0-.053,0-.079,0h-.02c-.026,0-.053,0-.079,0l-.043.006-.044.007-.047.012-.039.01-.045.016-.039.014-.041.019-.039.019-.039.023-.037.023-.042.031-.029.022c-.023.019-.046.039-.067.061L.265,53.808A.906.906,0,0,0,1.547,55.09l1.172-1.172v.53A11.781,11.781,0,0,0,14.487,66.242H14.5a11.733,11.733,0,0,0,9.9-5.4.906.906,0,0,0-.271-1.253M14.5,49.917a3.625,3.625,0,1,1-3.625,3.625A3.629,3.629,0,0,1,14.5,49.917m0,14.512h-.011a9.892,9.892,0,0,1-6.1-2.1,7.248,7.248,0,0,1,12.23,0A9.931,9.931,0,0,1,14.5,64.429"
+            transform="translate(0 -42.656)"
+            fill="#1a72e8"
+          />
+        </g>
+      </svg>
+    </div>
+  </div>
+</Link>
 //id end
 
 import { FC, useEffect, useState } from "react";
