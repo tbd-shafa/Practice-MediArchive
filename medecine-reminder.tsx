@@ -27,7 +27,6 @@ const MedicineReminder = dynamic(() => import("./medicine/reminder"), {
     }
 //id end
 
-
 import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { MedicineService } from "../../../services/MedicineService";
@@ -40,10 +39,10 @@ interface MedicineReminderProps {
   medicineId: string;
 }
 interface FormData {
-  reminder_start_date: string | null;
-  reminder_end_date: string | null;
+  //reminder_start_date: string | null;
+  //reminder_end_date: string | null;
   reminder_times: string[];
-  continue: boolean;
+  //continue: boolean;
 }
 
 const MedicineReminder: FC<MedicineReminderProps> = ({ patientId, medicineId }) => {
@@ -52,10 +51,10 @@ const MedicineReminder: FC<MedicineReminderProps> = ({ patientId, medicineId }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const initialFormData: FormData = {
-    reminder_start_date: null,
-    reminder_end_date: null,
+   // reminder_start_date: null,
+   // reminder_end_date: null,
     reminder_times: [],
-    continue: false
+   // continue: false
   };
   useEffect(() => {
     const fetchMedicine = async () => {
@@ -83,11 +82,11 @@ const MedicineReminder: FC<MedicineReminderProps> = ({ patientId, medicineId }) 
           }
           
         setFormData({
-          reminder_start_date: response.data.reminder_start_date || response.data.start_date,
-          reminder_end_date: response.data.reminder_end_date || response.data.end_date,
+          //reminder_start_date: response.data.reminder_start_date || response.data.start_date,
+         // reminder_end_date: response.data.reminder_end_date || response.data.end_date,
           reminder_times: reminderTimes,
           // Only set continue to true if there's no end date and no reminder end date
-          continue: !response.data.reminder_end_date && !response.data.end_date
+         // continue: !response.data.reminder_end_date && !response.data.end_date
         });
         } else {
           setError("Failed to fetch medicine details.");
@@ -122,39 +121,27 @@ const MedicineReminder: FC<MedicineReminderProps> = ({ patientId, medicineId }) 
     return {
       medicine_id: typeof medicineId === "string" ? medicineId :
                   Array.isArray(medicineId) ? medicineId[0] : "",
-      reminder_start_date: formData.reminder_start_date,
-      reminder_end_date: formData.continue ? null : formData.reminder_end_date,
+     // reminder_start_date: formData.reminder_start_date,
+     // reminder_end_date: formData.continue ? null : formData.reminder_end_date,
       reminder_times: formData.reminder_times.join(","),
     };
   };
 
-  const scrollStyles = {
-    pageWrapper: {
-      height: "calc(100vh - 60px)", // Adjust based on your header height
-      display: "flex",
-      flexDirection: "column" as const,
-    },
-    contentScroll: {
-      flex: 1,
-      overflowY: "auto" as const,
-      padding: "20px",
-    },
-    stickyHeader: {
-      position: "sticky" as const,
-      top: 0,
-      backgroundColor: "#fff",
-      zIndex: 10,
-      padding: "15px",
-      borderBottom: "1px solid #e0e0e0",
-    },
-    stickyFooter: {
-      position: "sticky" as const,
-      bottom: 0,
-      backgroundColor: "#fff",
-      padding: "15px",
-      borderTop: "1px solid #e0e0e0",
-      zIndex: 10,
-    }
+ 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString || dateString === 'null') return null;
+  
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }).format(date);
+  };
+  const scrollableContainerStyle = {
+    maxHeight: "calc(100vh - 200px)", // Adjust this value based on your header height
+    overflowY: "auto",
+    padding: "20px",
   };
   
   if (error) return <p>{error}</p>;
@@ -169,7 +156,18 @@ const MedicineReminder: FC<MedicineReminderProps> = ({ patientId, medicineId }) 
         </div>
       ) : (
         <>
-         <div className="d-flex flex-column h-100" style={{ height: 'calc(100vh - 60px)' }}>
+         <div
+            className="timeline"
+            style={{
+              maxHeight: scrollableContainerStyle.maxHeight,
+              overflowY: scrollableContainerStyle.overflowY as
+                | "auto"
+                | "scroll"
+                | "hidden"
+                | "visible",
+              padding: scrollableContainerStyle.padding,
+            }}
+          >
           <ToastContainer />
           
           <div className="patient-view-content-header">
@@ -201,7 +199,13 @@ const MedicineReminder: FC<MedicineReminderProps> = ({ patientId, medicineId }) 
                     <div className="col-md-12 mb-3">
                       <div className="form-group">
                         <label>Reminder Start Date</label>
-                        <input
+                        <p>
+  {medicine.reminder_start_date === 'null' ? 
+    formatDate(medicine.start_date) : 
+    formatDate(medicine.reminder_start_date)}
+</p>
+
+                        {/* <input
                   type="date"
                   className="form-control"
                   value={formData.reminder_start_date || ''}
@@ -209,15 +213,23 @@ const MedicineReminder: FC<MedicineReminderProps> = ({ patientId, medicineId }) 
                     ...formData,
                     reminder_start_date: e.target.value
                   })}
-                />
+                /> */}
                       </div>
                     </div>
 
                     <div className="col-md-12 mb-3">
                       <div className="form-group">
                         <label>Reminder End Date</label>
+                        <p>
+  {(!medicine.reminder_end_date || medicine.reminder_end_date === 'null') && 
+   (!medicine.end_date || medicine.end_date === 'null')
+    ? 'Continue'
+    : formatDate(medicine.reminder_end_date !== 'null' ? medicine.reminder_end_date : medicine.end_date)}
+</p>
+
+
                         <div className="d-flex align-items-center">
-                        <input
+                        {/* <input
                           type="date"
                           className="form-control"
                           value={formData.reminder_end_date || ''}
@@ -226,9 +238,9 @@ const MedicineReminder: FC<MedicineReminderProps> = ({ patientId, medicineId }) 
                             ...formData,
                             reminder_end_date: e.target.value
                           })}
-                        />
+                        /> */}
                       </div>
-                      {!formData.reminder_end_date && (
+                      {/* {!formData.reminder_end_date && (
                         <div className="form-check mt-2">
                           <input
                             type="checkbox"
@@ -242,7 +254,7 @@ const MedicineReminder: FC<MedicineReminderProps> = ({ patientId, medicineId }) 
                           />
                           <label className="form-check-label">Continue</label>
                         </div>
-                      )}
+                      )} */}
                       </div>
                     </div>
 
