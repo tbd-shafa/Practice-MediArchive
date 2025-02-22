@@ -1,0 +1,231 @@
+import { FC, useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { MedicineService } from "../../../services/MedicineService";
+
+interface MedicineProps {
+  patientId: string | string[] | undefined;
+}
+
+const Medicine: FC<MedicineProps> = ({ patientId }) => {
+  const [showSearch, setShowSearch] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const scrollableContainerStyle = {
+    maxHeight: "calc(100vh - 200px)", // Adjust this value based on your header height
+    overflowY: "auto",
+    padding: "20px",
+  };
+  const [medicines, setMedicines] = useState([]);
+  const [searchText, setSearchText] = useState("");
+
+  const [medicineOptions, setMedicineOptions] = useState([]);
+  const [isArchived, setIsArchived] = useState<boolean | undefined>(undefined); // Default: All
+ 
+ 
+  const [noDataFound, setNoDataFound] = useState(false);
+
+  useEffect(() => {
+    const fetchMedicines = async () => {
+      setIsLoading(true);
+      setNoDataFound(false);
+      try {
+        const id = typeof patientId === "string"
+          ? parseInt(patientId)
+          : Array.isArray(patientId)
+          ? parseInt(patientId[0])
+          : 0;
+  
+        const response = await MedicineService.getMedicinesByPatientId(id, searchText, isArchived);
+        console.log(response);
+        if (response.status === "success") {
+          console.log(4);
+          setMedicines(response.data.medicines);
+          setMedicineOptions(response.data.medicines.map((med) => med.name));
+          setNoDataFound(false);
+        }
+      } catch (error: any) {
+        console.log(5);
+        setMedicines([]);
+        setMedicineOptions([]);
+        setNoDataFound(true);
+        console.error("Error fetching medicines:", error);
+        if (error.response?.status === 404) {
+          setMedicines([]);
+          setMedicineOptions([]);
+          setNoDataFound(true);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+  
+    fetchMedicines();
+  }, [patientId, searchText, isArchived]);
+  const handleFilterChange = (isArchived: boolean | undefined) => {
+    setIsArchived(isArchived);
+  };
+  // Fetch medicines based on search input
+  const filteredMedicines = medicines.filter((med) =>
+    med.name.toLowerCase().includes(searchText.toLowerCase())
+  );
+  return (
+    <>
+     
+          <div className="patient-view-content-header lab-rpt-header">
+            <h5 className="card-title">
+              <span className="icon lab-report"> </span> Medecine
+            </h5>
+            <div className="right-search-filter-area">
+              <div className="search-area">
+                <div
+                  className={`search-input-area ${showSearch ? "" : "d-none"}`}
+                >
+                  <input
+                    type="text"
+                    placeholder="Search"
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                  />
+                  <span
+                    className="close-icon"
+                    id="close-src"
+                    onClick={() => {
+                      setSearchText("");
+                      setShowSearch(false);
+                    }}
+                  >
+                    <Image
+                      src="/images/close-icon.svg"
+                      alt="icon"
+                      width={15}
+                      height={15}
+                    />
+                  </span>
+
+                  {showSearch && (
+                    <ul className="dropdown-menu show">
+                      {medicineOptions
+                        .filter((name) =>
+                          name.toLowerCase().includes(searchText.toLowerCase())
+                        )
+                        .map((name, index) => (
+                          <li key={index} onClick={() => setSearchText(name)}>
+                            <a className="dropdown-item" href="#">
+                              {name}
+                            </a>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="search-btn"
+                  onClick={() => setShowSearch(true)}
+                >
+                  <Image
+                    src="/images/search-icon.svg"
+                    alt="icon"
+                    width={15}
+                    height={15}
+                  />
+                </button>
+              </div>
+
+              <Link
+                href={`/view-patient/${patientId}?view=add&tab=medicine`}
+                className="btn-patient-sm-add"
+              >
+                <Image
+                  src="/images/plus-icon.svg"
+                  alt="icon"
+                  width={15}
+                  height={15}
+                />
+                Add
+              </Link>
+            </div>
+          </div>
+
+          <div className="sub-card">
+            <div className="sub-card-body">
+            <div className="d-flex align-items-end timeline-topcard">
+            <button
+              className={`btn btn-primary mx-2 ${isArchived === undefined ? 'active' : ''}`}
+              onClick={() => handleFilterChange(undefined)}
+            >
+              All
+            </button>
+            <button
+              className={`btn btn-primary mx-2 ${isArchived === false ? 'active' : ''}`}
+              onClick={() => handleFilterChange(false)}
+            >
+              Current
+            </button>
+            <button
+              className={`btn btn-primary mx-2 ${isArchived === true ? 'active' : ''}`}
+              onClick={() => handleFilterChange(true)}
+            >
+              Archive
+            </button>
+          </div>
+            </div>
+          </div>
+         
+      {isLoading ? (
+        <div className="d-flex justify-content-center align-items-center h-100">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      ) : noDataFound ? (
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
+          <div className="text-center">
+            <p className="text-muted">No medicines found</p>
+           
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            className="timeline"
+            style={{
+              maxHeight: scrollableContainerStyle.maxHeight,
+              overflowY: scrollableContainerStyle.overflowY as
+                | "auto"
+                | "scroll"
+                | "hidden"
+                | "visible",
+              padding: scrollableContainerStyle.padding,
+            }}
+          >
+            <div className="timeline-item">
+              {filteredMedicines.map((medicine) => (
+                <div key={medicine.id}>
+                  <Link
+                    href={`/view-patient/${patientId}?tab=medicine&view=view&medicineid=${medicine.id}`}
+                  >
+                    <h3>{medicine.name}</h3>
+
+                    <p>Strength: {medicine.strength}</p>
+                    <p>Unit: {medicine.medicine_unit.measurement}</p>
+                    <p>Take: {medicine.perday_dose}</p>
+                    <p>Doctor: {medicine.doctor.name}</p>
+                    {medicine.is_archived && <p>archive icon</p>}
+                    <img
+                      src="/images/placeholder.svg"
+                      alt="Placeholder"
+                      id="patient-photo"
+                    />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
+export default Medicine;
