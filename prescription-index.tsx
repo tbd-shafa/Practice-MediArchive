@@ -1,3 +1,67 @@
+//lab-report image
+ <div className="timeline-item-image" style={{ position: 'relative' }}>
+                        {labReport.images.length > 0 ? (
+                          <>
+                            {/* Loading Placeholder */}
+                            <div style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '105px',
+                              height: '132px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#f8f9fa',
+                              borderRadius: '8px'
+                            }}>
+                              <div className="spinner-border text-primary" style={{ width: '2rem', height: '2rem' }} role="status">
+                                <span className="visually-hidden">Loading...</span>
+                              </div>
+                            </div>
+
+                              {/* Actual Image */}
+                              <img
+                                src={labReport.images[labReport.images.length - 1].image_url}
+                                alt={labReport.doctor.name}
+                                width={105}
+                                height={132}
+                                className="thumbnail"
+                                style={{
+                                  objectFit: 'cover',
+                                  borderRadius: '8px',
+                                  position: 'relative',
+                                  zIndex: 1
+                                }}
+                                onLoad={(e) => {
+                                  // Hide loader when image loads
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.zIndex = '2';
+                                }}
+                                onClick={() =>
+                                  handleImageClick(
+                                    labReport.images,
+                                    labReport.id,
+                                    labReport.images.length - 1
+                                  )
+                                }
+                              />
+                            </>
+                          ) : (
+                            <img
+                              src="/images/placeholder-patient.svg"
+                              alt="placeholder"
+                              width={105}
+                              height={132}
+                              style={{
+                                objectFit: 'cover',
+                                borderRadius: '8px'
+                              }}
+                            />
+                          )}
+                      </div>
+
+//lab-repor end
 import { FC, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
