@@ -1,41 +1,3 @@
-//id.tsx start
-const clearLabReportEditData = () => {
-    localStorage.removeItem("LabReportImages");
-    localStorage.removeItem("selectedTest_names");
-    localStorage.removeItem("selectedDoctors");
-    localStorage.removeItem("selectedDate");
-    localStorage.removeItem("removedLabReportApiImages");
-    localStorage.removeItem("removedLabReportTestNames");
-  };
-
-  useEffect(() => {
-    // Check if we're navigating away from lab report edit pages
-    const isLabReportEditRoute = 
-      view === "edit" && 
-      activeTab === "lab-report" && 
-      (
-        !router.query.editTags && 
-        !router.query.imageAttachment && 
-        router.query.labReportId
-      );
-    
-    const isLabReportEditTagsRoute = 
-      view === "edit" && 
-      activeTab === "lab-report" && 
-      router.query.editTags === "true";
-      
-    const isLabReportEditAttachmentRoute = 
-      view === "edit" && 
-      activeTab === "lab-report" && 
-      router.query.imageAttachment === "true";
-
-    // If not on any of the lab report edit routes, clear the data
-    if (!(isLabReportEditRoute || isLabReportEditTagsRoute || isLabReportEditAttachmentRoute)) {
-      clearLabReportEditData();
-    }
-  }, [router.query, view, activeTab]);
-//id.tsx end
-// import { FC, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import DatePicker from "react-datepicker";
@@ -48,26 +10,15 @@ import {
   Test_name,
   Doctor,
 } from "../../../services/PrescriptionService";
-
 import { LabReportService } from "../../../services/LabReportService";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCalendar,
-  faTimesCircle,
   faTrash,
   faPlus,
-  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
-
 import Slider from "react-slick";
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
-
 import React, { useEffect, useRef, useState } from "react";
-
-import "react-toastify/dist/ReactToastify.css";
-
-import "react-datepicker/dist/react-datepicker.css";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import { api, ApiResponse } from "../../../services/api";
@@ -82,19 +33,12 @@ interface Image {
   url: string;
 }
 
-// Utility function to safely access localStorage
-// const getLocalStorage = (key: string, defaultValue: any = null) => {
-//   if (typeof window !== 'undefined') {
-//     const stored = localStorage.getItem(key);
-//     return stored ? JSON.parse(stored) : defaultValue;
-//   }
-//   return defaultValue;
-// };
+
 const getLocalStorage = (key: string, defaultValue: any = null) => {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     const stored = localStorage.getItem(key);
     if (!stored) return defaultValue; // যদি key না থাকে, defaultValue রিটার্ন করবে
-    
+
     try {
       return JSON.parse(stored);
     } catch (error) {
@@ -135,8 +79,6 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   const [test_names, setTest_names] = useState<Test_name[]>([]);
   const [selectedTest_names, setSelectedTest_names] = useState<Test_name[]>([]);
   const [showTest_namesList, setShowTest_namesList] = useState(false);
-  const [newTest_nameName, setNewTest_nameName] = useState("");
-
   const [newTag, setNewTag] = useState("");
   const [isLoadingTest_names, setIsLoadingTest_names] = useState(true);
 
@@ -149,16 +91,8 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [showImageDeleteModal, setShowImageDeleteModal] = useState(false);
   const [imageToDelete, setImageToDelete] = useState<any>(null); // Track the image to be deleted
-  const [loadingImages, setLoadingImages] = useState<{ [key: string]: boolean }>({});
-  // Add image load handler
-  useEffect(() => {
-    const newLoadingState: { [key: string]: boolean } = {};
-    formData.images.forEach((_, index) => {
-      newLoadingState[index] = true;
-    });
-    setLoadingImages(newLoadingState);
-  }, [formData.images.length]); // Only run when number of images changes
-  
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
+
   const [removedApiImageIds, setRemovedApiImageIds] = useState<number[]>(() => {
     const stored = getLocalStorage("removedLabReportApiImages");
     return stored ? stored : [];
@@ -217,24 +151,24 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         //   setSelectedDoctors([doctorData]);
         //   localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
         // }
-         // Check for locally selected doctor first
-      const storedDoctors = getLocalStorage("selectedDoctors");
-      
-      if (storedDoctors && storedDoctors.length > 0) {
-        // If we have a locally selected doctor, keep using that
-        setSelectedDoctors(storedDoctors);
-      } else if (data.doctor) {
-        // Only set the API doctor if no local selection exists
-        const doctorData = {
-          id: data.doctor.id,
-          name: data.doctor.name,
-          client_id: data.client_id,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-        };
-        setSelectedDoctors([doctorData]);
-        localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
-      }
+        // Check for locally selected doctor first
+        const storedDoctors = getLocalStorage("selectedDoctors");
+
+        if (storedDoctors && storedDoctors.length > 0) {
+          // If we have a locally selected doctor, keep using that
+          setSelectedDoctors(storedDoctors);
+        } else if (data.doctor) {
+          // Only set the API doctor if no local selection exists
+          const doctorData = {
+            id: data.doctor.id,
+            name: data.doctor.name,
+            client_id: data.client_id,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+          };
+          setSelectedDoctors([doctorData]);
+          localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
+        }
 
         // Set the selected test_names from the labreport data
         // if (data.test_names && Array.isArray(data.test_names)) {
@@ -267,7 +201,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         if (data.test_names && Array.isArray(data.test_names)) {
           // Check for locally stored test_names first
           const storedTest_names = getLocalStorage("selectedTest_names");
-          
+
           if (storedTest_names && storedTest_names.length > 0) {
             // If we have locally stored test_names, use those instead of API data
             setSelectedTest_names(storedTest_names);
@@ -429,7 +363,9 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
     // Check if we can remove the image
     if (apiImagesCount + uploadedImagesCount <= 1) {
-      toast.error("At least one image must remain. To Remove this Please upload one first.");
+      toast.error(
+        "At least one image must remain. To Remove this Please upload one first."
+      );
       return;
     }
     if (image && image.id) {
@@ -514,14 +450,29 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
     // Check if we can remove the image
     if (apiImagesCount + uploadedImagesCount <= 1) {
-      toast.error("At least one image must remain. To Remove this Please upload one first.");
+      toast.error(
+        "At least one image must remain. To Remove this Please upload one first."
+      );
       return;
     }
-    setFormData((prev) => {
-      // Get the image to remove from the full array
-      const imageToRemove = prev.images[indexToRemove];
 
-      // Filter out the image to remove
+    // Update loaded images state
+    setLoadedImages(prev => {
+      const newLoaded = new Set(prev);
+      // Remove the deleted index and adjust remaining indices
+      newLoaded.delete(indexToRemove);
+      const adjustedLoaded = new Set<number>();
+      newLoaded.forEach(idx => {
+        if (idx < indexToRemove) {
+          adjustedLoaded.add(idx);
+        } else if (idx > indexToRemove) {
+          adjustedLoaded.add(idx - 1);
+        }
+      });
+      return adjustedLoaded;
+    });
+
+    setFormData((prev) => {
       const updatedImages = prev.images.filter(
         (_, index) => index !== indexToRemove
       );
@@ -697,39 +648,39 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   //     }
   //   }
   // }, [router.query.selectedtest_names]); // Only run when selectedtest_names changes
-useEffect(() => {
-  const { selectedtest_names } = router.query;
+  useEffect(() => {
+    const { selectedtest_names } = router.query;
 
-  if (selectedtest_names && typeof selectedtest_names === "string") {
-    try {
-      const parsedTest_names = JSON.parse(selectedtest_names);
-      
-      // Update both state and localStorage with the new selections
-      setSelectedTest_names(parsedTest_names);
-      localStorage.setItem(
-        "selectedTest_names",
-        JSON.stringify(parsedTest_names)
-      );
+    if (selectedtest_names && typeof selectedtest_names === "string") {
+      try {
+        const parsedTest_names = JSON.parse(selectedtest_names);
 
-      // Reset removed API test names since we have new selections
-      setRemovedApiTestNameIds([]);
-      localStorage.removeItem("removedLabReportTestNames");
+        // Update both state and localStorage with the new selections
+        setSelectedTest_names(parsedTest_names);
+        localStorage.setItem(
+          "selectedTest_names",
+          JSON.stringify(parsedTest_names)
+        );
 
-      // Clean up the URL
-      const { selectedtest_names: _, ...restQuery } = router.query;
-      router.replace(
-        {
-          pathname: router.pathname,
-          query: restQuery,
-        },
-        undefined,
-        { shallow: true }
-      );
-    } catch (error) {
-      console.error("Error parsing selected test_names:", error);
+        // Reset removed API test names since we have new selections
+        setRemovedApiTestNameIds([]);
+        localStorage.removeItem("removedLabReportTestNames");
+
+        // Clean up the URL
+        const { selectedtest_names: _, ...restQuery } = router.query;
+        router.replace(
+          {
+            pathname: router.pathname,
+            query: restQuery,
+          },
+          undefined,
+          { shallow: true }
+        );
+      } catch (error) {
+        console.error("Error parsing selected test_names:", error);
+      }
     }
-  }
-}, [router.query.selectedtest_names]);
+  }, [router.query.selectedtest_names]);
   // Load test_names from localStorage on mount
   useEffect(() => {
     const storedTest_names = getLocalStorage("selectedTest_names");
@@ -947,16 +898,14 @@ useEffect(() => {
       // Only clear if navigating away from edit-related routes
       const currentPath = window.location.pathname;
       const currentQuery = new URLSearchParams(window.location.search);
-      
-      const isStillInEditFlow = 
-        currentPath.includes('/view-patient') &&
-        currentQuery.get('tab') === 'lab-report' &&
-        currentQuery.get('view') === 'edit' &&
-        (
-          currentQuery.get('labReportId') ||
-          currentQuery.get('editTags') === 'true' ||
-          currentQuery.get('imageAttachment') === 'true'
-        );
+
+      const isStillInEditFlow =
+        currentPath.includes("/view-patient") &&
+        currentQuery.get("tab") === "lab-report" &&
+        currentQuery.get("view") === "edit" &&
+        (currentQuery.get("labReportId") ||
+          currentQuery.get("editTags") === "true" ||
+          currentQuery.get("imageAttachment") === "true");
 
       if (!isStillInEditFlow) {
         localStorage.removeItem("LabReportImages");
@@ -1027,60 +976,52 @@ useEffect(() => {
                           height: "170px",
                           background: "#f8f9fa",
                           borderRadius: "8px",
-                          
                         }}
                       >
                         {/* Loading Placeholder */}
-                        {loadingImages[index] && (
-                          <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#f8f9fa',
-                            borderRadius: '8px',
-                            zIndex: 1
-                          }}>
-                            <div 
-                              className="spinner-border text-primary" 
-                              style={{ width: '2rem', height: '2rem' }} 
+                        {!loadedImages.has(index) && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: "100%",
+                              height: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              backgroundColor: "#f8f9fa",
+                              borderRadius: "8px",
+                              zIndex: 1,
+                            }}
+                          >
+                            <div
+                              className="spinner-border text-primary"
+                              style={{ width: "2rem", height: "2rem" }}
                               role="status"
                             >
-                              <span className="visually-hidden">Loading...</span>
+                              <span className="visually-hidden">
+                                Loading...
+                              </span>
                             </div>
                           </div>
                         )}
-                        {/* <img
-                          src={image.url || image} // Handle both API image URLs and base64 strings
+                       
+                        {/* Actual Image */}
+                        <img
+                          src={image.url || image}
                           alt={`Lab Report ${index + 1}`}
                           style={{
                             width: "100%",
                             height: "100%",
                             objectFit: "contain",
+                            opacity: loadedImages.has(index) ? 1 : 0,
+                            transition: "opacity 0.3s ease",
                           }}
-                        /> */}
-                           {/* Actual Image */}
-                          <img
-                            src={image.url || image}
-                            alt={`Lab Report ${index + 1}`}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "contain",
-                              opacity: loadingImages[index] ? 0 : 1,
-                              transition: 'opacity 0.3s ease'
-                            }}
-                            onLoad={() => {
-                              setLoadingImages(prev => ({
-                                ...prev,
-                                [index]: false
-                              }));
-                            }}
-                          />
+                          onLoad={() => {
+                            setLoadedImages(prev => new Set(Array.from(prev).concat(index)));
+                          }}
+                        />
                         {/* Show different remove buttons based on image type */}
                         {image.id ? (
                           // For API-fetched images
