@@ -1,101 +1,73 @@
-//service start
-//update prescription
-    static async updateLabReport(
-      labReportId: string,
-      doctorId: number,
-      doctorName: string,
-      date: string,
-      test_nameIds: number[],
-      files: File[]
-    ): Promise<any> {
-      const formData = new FormData();
-      
-      formData.append("doctor_id", doctorId.toString());
-      formData.append("doctor", doctorName);
-      formData.append("date", date);
-      formData.append("test_name_ids", test_nameIds.join(","));
-  
-      // Append files if any
-      files.forEach((file) => {
-        formData.append("files", file);
-      });
-  
-      return await api.put(
-        `${config.API_ENDPOINTS.LAB_REPORT}/${labReportId}/`,
-        formData,
-        {
-          requiresAuth: true,
-         
-        }
-      );
-    }
-//service end
-
-// import { FC, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { format } from "date-fns";
 import {
   PrescriptionService,
-  Test_name,
+  Symptom,
   Doctor,
 } from "../../../services/PrescriptionService";
-
-import { LabReportService } from "../../../services/LabReportService";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCalendar,
-  faTimesCircle,
-  faTrash,
-  faPlus,
-  faTimes,
-} from "@fortawesome/free-solid-svg-icons";
-
+import { faCalendar, faTrash, faPlus } from "@fortawesome/free-solid-svg-icons";
 import Slider from "react-slick";
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
-
 import React, { useEffect, useRef, useState } from "react";
-
 import "react-toastify/dist/ReactToastify.css";
-
 import "react-datepicker/dist/react-datepicker.css";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import { api, ApiResponse } from "../../../services/api";
 import config from "../../../config";
 
-interface LabReportEditProps {
+interface PrescriptionEditProps {
   patientId: string | string[]; // Allow string or string[]
-  labReportId: string; // Add labReportId to the props interface
+  prescriptionId: string; // Add prescriptionId to the props interface
 }
 interface Image {
   id: number; // or string, depending on your data
   url: string;
 }
-const LabReportEdit: React.FC<LabReportEditProps> = ({
+
+// Utility function to safely access localStorage
+// const getLocalStorage = (key: string, defaultValue: any = null) => {
+//   if (typeof window !== 'undefined') {
+//     const stored = localStorage.getItem(key);
+//     return stored ? JSON.parse(stored) : defaultValue;
+//   }
+//   return defaultValue;
+// };
+
+const getLocalStorage = (key: string, defaultValue: any = null) => {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem(key);
+    if (!stored) return defaultValue; // যদি key না থাকে, defaultValue রিটার্ন করবে
+
+    try {
+      return JSON.parse(stored);
+    } catch (error) {
+      console.error(`Invalid JSON in localStorage for key: ${key}`, error);
+      return defaultValue; // যদি JSON ভুল হয়, তাহলে defaultValue রিটার্ন করবে
+    }
+  }
+  return defaultValue; // যদি window না থাকে (SSR), defaultValue রিটার্ন করবে
+};
+
+const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
   patientId,
-  labReportId,
+  prescriptionId,
 }) => {
   const router = useRouter();
   const [formData, setFormData] = useState({
     date: "",
-    //images: [] as string[],
     images: [],
     doctors: [] as { id: number; name: string }[],
-    test_names: [] as { id: number; description: string }[],
+    symptoms: [] as { id: number; description: string }[],
   });
-
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
-    const storedDate = localStorage.getItem("selectedDate");
+    const storedDate = getLocalStorage("selectedDate");
     return storedDate ? new Date(storedDate) : new Date();
   });
 
@@ -104,13 +76,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     localStorage.setItem("selectedDate", date.toISOString()); // Store the date in localStorage
   };
 
-  const [test_names, setTest_names] = useState<Test_name[]>([]);
-  const [selectedTest_names, setSelectedTest_names] = useState<Test_name[]>([]);
-  const [showTest_namesList, setShowTest_namesList] = useState(false);
-  const [newTest_nameName, setNewTest_nameName] = useState("");
-
+  const [symptoms, setSymptoms] = useState<Symptom[]>([]);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<Symptom[]>([]);
+  const [showSymptomsList, setShowSymptomsList] = useState(false);
   const [newTag, setNewTag] = useState("");
-  const [isLoadingTest_names, setIsLoadingTest_names] = useState(true);
+  const [isLoadingSymptoms, setIsLoadingSymptoms] = useState(true);
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctors, setSelectedDoctors] = useState<Doctor[]>([]);
@@ -120,30 +90,35 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   const [loading, setLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [showImageDeleteModal, setShowImageDeleteModal] = useState(false);
+
   const [imageToDelete, setImageToDelete] = useState<any>(null); // Track the image to be deleted
 
   const [removedApiImageIds, setRemovedApiImageIds] = useState<number[]>(() => {
-    const stored = localStorage.getItem('removedLabReportApiImages');
-    return stored ? JSON.parse(stored) : [];
+    const stored = getLocalStorage("removedPrescriptionApiImages");
+    return stored ? stored : [];
   });
 
-  const [removedApiTestNameIds, setRemovedApiTestNameIds] = useState<number[]>(() => {
-    const stored = localStorage.getItem('removedLabReportTestNames');
-    return stored ? JSON.parse(stored) : [];
-  });
+  const [removedApiSymptomIds, setRemovedApiSymptomIds] = useState<number[]>(
+    () => {
+      const stored = getLocalStorage("removedPrescriptionSymptoms");
+      return stored ? stored : [];
+    }
+  );
 
-  // Fetch lab report data on component mount
+  // Add this state at the top of your component
+  const [loadingImages, setLoadingImages] = useState<{ [key: number]: boolean }>({});
+
+  // Fetch prescription data on component mount
   useEffect(() => {
-    const fetchLabReport = async () => {
+    const fetchPrescription = async () => {
       try {
         const response = await api.get<ApiResponse>(
-          `${config.API_ENDPOINTS.LAB_REPORT}/${labReportId}/`
+          `${config.API_ENDPOINTS.PRESCRIPTION_ADD}/${prescriptionId}/`
         );
         const data = response.data;
-
         // Get existing uploaded images from localStorage
-        const storedImages = localStorage.getItem("LabReportImages");
-        const uploadedImages = storedImages ? JSON.parse(storedImages) : [];
+        const storedImages = getLocalStorage("PrescriptionImages");
+        const uploadedImages = storedImages ? storedImages : [];
 
         // Create array of API images with IDs, excluding removed ones
         const apiImages = response.data.images
@@ -154,20 +129,44 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           }));
 
         // Filter out any uploaded images that might duplicate API images
-        const filteredUploadedImages = uploadedImages.filter(uploadedImg => {
-          return !apiImages.some(apiImg => apiImg.url === uploadedImg);
+        const filteredUploadedImages = uploadedImages.filter((uploadedImg) => {
+          return !apiImages.some((apiImg) => apiImg.url === uploadedImg);
         });
 
-        setFormData((prev) => ({
-          ...prev,
+        // Initialize loading state for all images
+        const initialLoadingState = [...apiImages, ...filteredUploadedImages].reduce(
+          (acc, _, index) => ({ ...acc, [index]: true }),
+          {}
+        );
+        setLoadingImages(initialLoadingState);
+
+        setFormData({
           date: response.data.date,
           images: [...apiImages, ...filteredUploadedImages],
           doctors: response.data.doctors,
-          test_names: response.data.test_names,
-        }));
+          symptoms: response.data.symptoms,
+        });
 
-        // Set the selected doctor from the labreport data
-        if (data.doctor) {
+        // Set the selected doctor from the prescription data
+        // if (data.doctor) {
+        //   const doctorData = {
+        //     id: data.doctor.id,
+        //     name: data.doctor.name,
+        //     client_id: data.client_id,
+        //     created_at: data.created_at,
+        //     updated_at: data.updated_at,
+        //   };
+        //   setSelectedDoctors([doctorData]);
+        //   localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
+        // }
+        // Check for locally selected doctor first
+        const storedDoctors = getLocalStorage("selectedDoctors");
+
+        if (storedDoctors && storedDoctors.length > 0) {
+          // If we have a locally selected doctor, keep using that
+          setSelectedDoctors(storedDoctors);
+        } else if (data.doctor) {
+          // Only set the API doctor if no local selection exists
           const doctorData = {
             id: data.doctor.id,
             name: data.doctor.name,
@@ -178,45 +177,71 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           setSelectedDoctors([doctorData]);
           localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
         }
+        // Set the selected symptoms from the prescription data
+        // if (data.symptoms && Array.isArray(data.symptoms)) {
+        //    // Filter out removed API symptoms
+        //    const apiSymptoms = data.symptoms.filter(
+        //     (test: any) => !removedApiSymptomIds.includes(test.id)
+        //   );
 
-        // Set the selected test_names from the labreport data
-        if (data.test_names && Array.isArray(data.test_names)) {
-          // Filter out removed API test names
-          const apiTestNames = data.test_names.filter(
-            (test: any) => !removedApiTestNameIds.includes(test.id)
-          );
+        //   // Get any existing symptoms from localStorage
+        //   const storedSymptoms = getLocalStorage("selectedSymptoms");
+        //   const parsedStoredSymptoms = storedSymptoms ? storedSymptoms : [];
 
-          // Get any existing test_names from localStorage
-          const storedTest_names = localStorage.getItem("selectedTest_names");
-          const parsedStoredTest_names = storedTest_names ? JSON.parse(storedTest_names) : [];
-          
-          // Combine filtered API Test_names with stored Test_names, removing duplicates
-          const combinedTest_names = [...apiTestNames, ...parsedStoredTest_names].filter(
-            (test_name, index, self) => 
-              index === self.findIndex((s) => s.id === test_name.id)
-          );
-          
-          setSelectedTest_names(combinedTest_names);
-          localStorage.setItem("selectedTest_names", JSON.stringify(combinedTest_names));
+        //   // Combine API symptoms with any stored symptoms, removing duplicates
+        //   const combinedSymptoms  = [
+        //     ...apiSymptoms ,
+        //     ...parsedStoredSymptoms ,
+        //   ].filter(
+        //     (symptom, index, self) =>
+        //       index === self.findIndex((s) => s.id === symptom.id)
+        //   );
+
+        //   setSelectedSymptoms(combinedSymptoms);
+        //   localStorage.setItem(
+        //     "selectedSymptoms",
+        //     JSON.stringify(combinedSymptoms)
+        //   );
+        // }
+
+        if (data.symptoms && Array.isArray(data.symptoms)) {
+          // Check for locally stored symptoms first
+          const storedSymptoms = getLocalStorage("selectedSymptoms");
+
+          if (storedSymptoms && storedSymptoms.length > 0) {
+            // If we have locally stored symptoms, use those instead of API data
+            setSelectedSymptoms(storedSymptoms);
+          } else {
+            // If no local storage, use API data
+            const apiSymptoms = data.symptoms.filter(
+              (test: any) => !removedApiSymptomIds.includes(test.id)
+            );
+            setSelectedSymptoms(apiSymptoms);
+            localStorage.setItem(
+              "selectedSymptoms",
+              JSON.stringify(apiSymptoms)
+            );
+          }
         }
 
         // Only set the date from API if there's no date in localStorage
-        const storedDate = localStorage.getItem("selectedDate");
+        const storedDate = getLocalStorage("selectedDate");
         if (!storedDate) {
           setSelectedDate(new Date(data.date));
-          localStorage.setItem("selectedDate", new Date(data.date).toISOString());
+          localStorage.setItem(
+            "selectedDate",
+            new Date(data.date).toISOString()
+          );
         }
-
         setLoading(false);
       } catch (error) {
-        console.error("Failed to fetch labreport:", error);
-        toast.error("Failed to fetch labreport data");
+        console.error("Failed to fetch prescription:", error);
         setLoading(false);
       }
     };
 
-    fetchLabReport();
-  }, [labReportId, removedApiTestNameIds]);
+    fetchPrescription();
+  }, [prescriptionId, removedApiSymptomIds]);
 
   // handle doctor selection start
   useEffect(() => {
@@ -281,10 +306,10 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   };
 
   useEffect(() => {
-    const storedDoctors = localStorage.getItem("selectedDoctors");
+    const storedDoctors = getLocalStorage("selectedDoctors");
     if (storedDoctors) {
       try {
-        const parsedDoctors = JSON.parse(storedDoctors);
+        const parsedDoctors = storedDoctors;
         setSelectedDoctors(parsedDoctors);
       } catch (error) {
         console.error("Error parsing stored doctors:", error);
@@ -297,44 +322,6 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   };
   // handle doctor selection end
 
-  // handle route change start
-  useEffect(() => {
-    const handleRouteChange = (url: string) => {
-      // Use window.location.origin to support different environments
-      const parsedUrl =
-        typeof window !== "undefined"
-          ? new URL(url, window.location.origin)
-          : new URL(url, "http://localhost:3000");
-
-      const view = parsedUrl.searchParams.get("view");
-      const tab = parsedUrl.searchParams.get("tab");
-
-      // Check if the route does NOT have both view=add and tab=lab-report
-      const isNotLabReportAddPage =
-        view !== "edit" || tab !== "lab-report";
-
-      if (isNotLabReportAddPage) {
-        // Clear localStorage
-        localStorage.removeItem("LabReportImages");
-        localStorage.removeItem("selectedTest_names");
-        localStorage.removeItem("selectedDoctors");
-        localStorage.removeItem("selectedDate"); // Clear the selected date
-        // Reset state
-        setSelectedTest_names([]);
-        setUploadedFiles([]);
-        setSelectedDoctors([]);
-        setSelectedDate(new Date()); // Reset to today's date if desired
-      }
-    };
-
-    // Add event listener for route changes
-    router.events.on("routeChangeStart", handleRouteChange);
-
-    // Cleanup event listener
-    return () => {
-      router.events.off("routeChangeStart", handleRouteChange);
-    };
-  }, [router.events]);
   const sliderRef = useRef<any>(null);
 
   //handle image upload start
@@ -355,36 +342,53 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       });
 
       Promise.all(newImages).then((imageUrls) => {
+        // Set loading state for new images
+        const currentImageCount = formData.images.length;
+        const newLoadingStates = imageUrls.reduce(
+          (acc, _, index) => ({
+            ...acc,
+            [currentImageCount + index]: true,
+          }),
+          {}
+        );
+        setLoadingImages((prev) => ({ ...prev, ...newLoadingStates }));
+
         setFormData((prev) => ({
           ...prev,
           images: [...prev.images, ...imageUrls],
         }));
       });
 
-      // Scroll to the last item when images are added
-      setTimeout(() => {
-        if (sliderRef.current) {
-          sliderRef.current.slickGoTo(newUploadedFiles.length);
-        }
-      }, 300);
-
       e.target.value = "";
     }
   };
   // Handle image removal
-  // Handle confirmation of image deletion (from fetched labreport)
+  // Handle confirmation of image deletion (from fetched Prescription)
   const removeImage = (indexToRemove: number, imageUrl: string) => {
     const image = formData.images[indexToRemove]; // Get the image object (with id and url)
+    // Count the number of API images and uploaded images
+    const apiImagesCount = formData.images.filter((img) => img.id).length;
+    const uploadedImagesCount = formData.images.filter((img) => !img.id).length;
 
+    // Check if we can remove the image
+    if (apiImagesCount + uploadedImagesCount <= 1) {
+      toast.error(
+        "At least one image must remain. To Remove this Please upload one first."
+      );
+      return;
+    }
     if (image && image.id) {
-      // If image is from fetched labreport, show the delete modal
+      // If image is from fetched Prescription, show the delete modal
       setImageToDelete({ image, index: indexToRemove });
       setShowImageDeleteModal(true);
-      
+
       // Add the image ID to removedApiImageIds
       const newRemovedIds = [...removedApiImageIds, image.id];
       setRemovedApiImageIds(newRemovedIds);
-      localStorage.setItem('removedLabReportApiImages', JSON.stringify(newRemovedIds));
+      localStorage.setItem(
+        "removedPrescriptionApiImages",
+        JSON.stringify(newRemovedIds)
+      );
     } else {
       // If it's not a fetched image, remove it directly
       setUploadedFiles((prevFiles) =>
@@ -399,7 +403,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
         // Update localStorage
         localStorage.setItem(
-          "LabReportImages",
+          "PrescriptionImages",
           JSON.stringify(updatedImages)
         );
 
@@ -416,12 +420,12 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     const imageIdToDelete = image.id; // Get the image ID from the selected image
 
     try {
-      const result = await LabReportService.deleteLabReportImage(
-       // labReportId,
-       Number(labReportId),
+      const result = await PrescriptionService.deletePrescriptionImage(
+        // PrescriptionId,
+        Number(prescriptionId),
         imageIdToDelete.toString() // Use image ID for deletion
       );
-     
+
       if (result.status === "success") {
         toast.success("Image deleted successfully");
 
@@ -430,11 +434,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           const updatedImages = prev.images.filter(
             (img) => img.id !== image.id
           );
-          
-          // Get only uploaded images (without id) to store in LabReportImages
-          const uploadedImages = updatedImages.filter(img => !img.id);
+
+          // Get only uploaded images (without id) to store in PrescriptionImages
+          const uploadedImages = updatedImages.filter((img) => !img.id);
           localStorage.setItem(
-            "LabReportImages",
+            "PrescriptionImages",
             JSON.stringify(uploadedImages)
           );
 
@@ -452,19 +456,37 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   };
 
   const removeImage2 = (indexToRemove: number) => {
+    // Count the number of API images and uploaded images
+    const apiImagesCount = formData.images.filter((img) => img.id).length;
+    const uploadedImagesCount = formData.images.filter((img) => !img.id).length;
+
+    // Check if we can remove the image
+    if (apiImagesCount + uploadedImagesCount <= 1) {
+      toast.error(
+        "At least one image must remain. To Remove this Please upload one first."
+      );
+      return;
+    }
     setFormData((prev) => {
       // Get the image to remove from the full array
       const imageToRemove = prev.images[indexToRemove];
-      
+
       // Filter out the image to remove
-      const updatedImages = prev.images.filter((_, index) => index !== indexToRemove);
+      const updatedImages = prev.images.filter(
+        (_, index) => index !== indexToRemove
+      );
 
       // Update localStorage with only the uploaded images (images without id)
-      const uploadedImages = updatedImages.filter(img => !img.id);
-      localStorage.setItem("LabReportImages", JSON.stringify(uploadedImages));
+      const uploadedImages = updatedImages.filter((img) => !img.id);
+      localStorage.setItem(
+        "PrescriptionImages",
+        JSON.stringify(uploadedImages)
+      );
 
       // Update uploadedFiles state
-      setUploadedFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
+      setUploadedFiles((prevFiles) =>
+        prevFiles.filter((_, index) => index !== indexToRemove)
+      );
 
       return {
         ...prev,
@@ -475,9 +497,9 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
   // On component mount, load images from localStorage
   useEffect(() => {
-    const storedImages = localStorage.getItem("LabReportImages");
+    const storedImages = getLocalStorage("PrescriptionImages");
     if (storedImages) {
-      const parsedImages = JSON.parse(storedImages);
+      const parsedImages = storedImages;
 
       // Convert stored base64 images to File objects
       const filePromises = parsedImages.map(async (imageUrl: string) => {
@@ -505,7 +527,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       ...prev,
       images: [],
     }));
-    localStorage.removeItem("LabReportImages");
+    localStorage.removeItem("PrescriptionImages");
   };
 
   useEffect(() => {
@@ -525,9 +547,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         // Append parsed images to existing images
         Promise.all(filePromises).then((files) => {
           // Store images in localStorage to persist across navigation
-          const currentImages = JSON.parse(
-            localStorage.getItem("LabReportImages") || "[]"
-          );
+          const currentImages = getLocalStorage("PrescriptionImages");
 
           // Filter out duplicate images
           const newImages = parsedImages.filter(
@@ -538,7 +558,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
           // Update localStorage
           localStorage.setItem(
-            "LabReportImages",
+            "PrescriptionImages",
             JSON.stringify(updatedImages)
           );
 
@@ -577,11 +597,9 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   }, [router.query]);
 
   useEffect(() => {
-    const storedImages = JSON.parse(
-      localStorage.getItem("LabReportImages") || "[]"
-    );
+    const storedImages = getLocalStorage("PrescriptionImages");
 
-    if (storedImages.length > 0) {
+    if (storedImages) {
       const filePromises = storedImages.map(async (imageUrl: string) => {
         const response = await fetch(imageUrl);
         const blob = await response.blob();
@@ -602,23 +620,56 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
   // handle image end
 
-  // handle Test_names start
-  // Handle Test_names from edit-tags page
-  useEffect(() => {
-    const { selectedtest_names } = router.query;
+  // handle symptoms start
+  // Handle symptoms from edit-tags page
+  // useEffect(() => {
+  //   const { selectedsymptoms } = router.query;
 
-    if (selectedtest_names && typeof selectedtest_names === "string") {
+  //   if (selectedsymptoms && typeof selectedsymptoms === "string") {
+  //     try {
+  //       const parsedSymptoms = JSON.parse(selectedsymptoms);
+  //       // Update both state and localStorage
+  //       setSelectedSymptoms(parsedSymptoms);
+  //       localStorage.setItem(
+  //         "selectedSymptoms",
+  //         JSON.stringify(parsedSymptoms)
+  //       );
+
+  //       // Clean up the URL
+  //       const { selectedsymptoms: _, ...restQuery } = router.query;
+  //       router.replace(
+  //         {
+  //           pathname: router.pathname,
+  //           query: restQuery,
+  //         },
+  //         undefined,
+  //         { shallow: true }
+  //       );
+  //     } catch (error) {
+  //       console.error("Error parsing selected symptoms:", error);
+  //     }
+  //   }
+  // }, [router.query.selectedsymptoms]); // Only run when selectedsymptoms changes
+  useEffect(() => {
+    const { selectedsymptoms } = router.query;
+
+    if (selectedsymptoms && typeof selectedsymptoms === "string") {
       try {
-        const parsedTest_names = JSON.parse(selectedtest_names);
-        // Update both state and localStorage
-        setSelectedTest_names(parsedTest_names);
+        const parsedSymptoms = JSON.parse(selectedsymptoms);
+
+        // Update both state and localStorage with the new selections
+        setSelectedSymptoms(parsedSymptoms);
         localStorage.setItem(
-          "selectedTest_names",
-          JSON.stringify(parsedTest_names)
+          "selectedSymptoms",
+          JSON.stringify(parsedSymptoms)
         );
 
+        // Reset removed API symptoms since we have new selections
+        setRemovedApiSymptomIds([]);
+        localStorage.removeItem("removedPrescriptionSymptoms");
+
         // Clean up the URL
-        const { selectedtest_names: _, ...restQuery } = router.query;
+        const { selectedsymptoms: _, ...restQuery } = router.query;
         router.replace(
           {
             pathname: router.pathname,
@@ -628,76 +679,86 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           { shallow: true }
         );
       } catch (error) {
-        console.error("Error parsing selected test_names:", error);
+        console.error("Error parsing selected symptoms:", error);
       }
     }
-  }, [router.query.selectedtest_names]); // Only run when selectedtest_names changes
-
-  // Load test_names from localStorage on mount
+  }, [router.query.selectedsymptoms]);
+  // Load symptoms from localStorage on mount
   useEffect(() => {
-    const storedTest_names = localStorage.getItem("selectedTest_names");
-    if (storedTest_names) {
+    const storedSymptoms = getLocalStorage("selectedSymptoms");
+    if (storedSymptoms) {
       try {
-        const parsedTest_names = JSON.parse(storedTest_names);
-        setSelectedTest_names(parsedTest_names);
+        const parsedSymptoms = storedSymptoms;
+        setSelectedSymptoms(parsedSymptoms);
       } catch (error) {
-        console.error("Error parsing stored Test_names:", error);
+        console.error("Error parsing stored symptoms:", error);
       }
     }
   }, []);
 
-  const handleTest_nameselect = (test_name: Test_name) => {
-    const updatedTest_names = [...selectedTest_names, test_name].filter(
+  const handleSymptomSelect = (symptom: Symptom) => {
+    const updatedSymptoms = [...selectedSymptoms, symptom].filter(
       (t, index, self) => index === self.findIndex((st) => st.id === t.id)
     );
 
-    setSelectedTest_names(updatedTest_names);
+    setSelectedSymptoms(updatedSymptoms);
 
     // Store in localStorage
-    localStorage.setItem("selectedTest_names", JSON.stringify(updatedTest_names));
+    localStorage.setItem("selectedSymptoms", JSON.stringify(updatedSymptoms));
 
-    setShowTest_namesList(false);
+    setShowSymptomsList(false);
     setNewTag("");
   };
 
-  const handleAddNewTest_name = async () => {
+  const handleAddNewSymptom = async () => {
     if (!newTag.trim()) return;
 
     try {
-      const response = await LabReportService.createTestName(newTag.trim());
+      const response = await PrescriptionService.createSymptom(newTag.trim());
       if (response.status === "success" && response.data) {
-        setTest_names((prev) => [...prev, response.data]);
-        handleTest_nameselect(response.data);
-        toast.success("Test name added successfully");
+        setSymptoms((prev) => [...prev, response.data]);
+        handleSymptomSelect(response.data);
+        toast.success("Symptom added successfully");
       }
     } catch (error) {
-      console.error("Error adding new test name:", error);
-      toast.error("Failed to add new test name");
+      console.error("Error adding new SYMPTOM name:", error);
+      toast.error("Failed to add new SYMPTOM name");
     }
   };
-  // Modify removeTestName to update localStorage
-  const removeTest_name = (test_nameId: number) => {
-    // Check if this is an API test name (exists in formData.test_names)
-    const isApiTestName = formData.test_names.some((test: any) => test.id === test_nameId);
 
-    if (isApiTestName) {
-      // Add to removed API test names
-      const newRemovedIds = [...removedApiTestNameIds, test_nameId];
-      setRemovedApiTestNameIds(newRemovedIds);
-      localStorage.setItem('removedLabReportTestNames', JSON.stringify(newRemovedIds));
+  const removeSymptom = (symptomId: number) => {
+    // Check if this is an API Symptoms (exists in formData.symptoms)
+
+    const isApiSymptom = formData.symptoms.some(
+      (test: any) => test.id === symptomId
+    );
+
+    if (isApiSymptom) {
+      // Add to removed API symptoms
+      const newRemovedIds = [...removedApiSymptomIds, symptomId];
+      setRemovedApiSymptomIds(newRemovedIds);
+      localStorage.setItem(
+        "removedPrescriptionSymptoms",
+        JSON.stringify(newRemovedIds)
+      );
     }
 
-    const updatedTest_names = selectedTest_names.filter((t) => t.id !== test_nameId);
-    setSelectedTest_names(updatedTest_names);
-    localStorage.setItem("selectedTest_names", JSON.stringify(updatedTest_names));
+    const updatedSymptoms = selectedSymptoms.filter((t) => t.id !== symptomId);
+
+    setSelectedSymptoms(updatedSymptoms);
+
+    // Update localStorage
+    localStorage.setItem("selectedSymptoms", JSON.stringify(updatedSymptoms));
   };
-  // handle Test_names end
+
+  // handle symptoms end
 
   const sliderSettings = {
     dots: true,
     infinite: false,
     speed: 500,
     slidesToShow: formData.images.length >= 3 ? 3 : formData.images.length + 1, // Add space for + Add Image
+    // slidesToShow: formData.images.length >= 3 ? 3 : formData.images.length + 1, // Add space for + Add Image
     slidesToScroll: 1,
     arrows: true,
   };
@@ -707,7 +768,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       query: {
         ...router.query,
         view: "edit",
-        tab: "lab-report",
+        tab: "prescription",
         imageAttachment: "true",
       },
     });
@@ -719,15 +780,15 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       query: {
         ...router.query,
         view: "edit", // Change from 'add' to 'edit'
-        tab: "lab-report",
+        tab: "prescription",
         editTags: "true", // Update query parameter
-        labReportId, // Ensure the labReportId ID is included
+        prescriptionId, // Ensure the prescription ID is included
       },
     });
   };
 
   useEffect(() => {
-    const storedDate = localStorage.getItem("selectedDate");
+    const storedDate = getLocalStorage("selectedDate");
     if (storedDate) {
       setSelectedDate(new Date(storedDate)); // Set the stored date
     }
@@ -749,20 +810,21 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       hasError = true;
     }
 
-    if (selectedTest_names.length === 0) {
-      errors.test_names = "At least one test_name is required";
-      hasError = true;
-      toast.error("At least one Tag is required");
-    }
+    // if (selectedSymptoms.length === 0) {
+    //   errors.symptoms = "At least one symptom is required";
+
+    //   hasError = true;
+
+    // }
 
     // Check if there are any images (either from API or uploaded)
-    const apiImages = formData.images.filter(img => img.id);
-    const uploadedImages = formData.images.filter(img => !img.id);
+    const apiImages = formData.images.filter((img) => img.id);
+    const uploadedImages = formData.images.filter((img) => !img.id);
 
     if (apiImages.length === 0 && uploadedImages.length === 0) {
       errors.images = "At least one image is required";
       hasError = true;
-      toast.error("At least one image is required");
+      //toast.error("At least one image is required");
     }
 
     if (hasError) {
@@ -772,8 +834,8 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
     setIsSaving(true);
     try {
-      if (!labReportId) {
-        throw new Error("LabReport ID is required for update");
+      if (!prescriptionId) {
+        throw new Error("Prescription ID is required for update");
       }
 
       // Convert base64 strings to File objects for uploaded images
@@ -781,54 +843,80 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         try {
           const response = await fetch(imageData);
           const blob = await response.blob();
-          return new File([blob], `lab_report_${Date.now()}.jpg`);
+          return new File([blob], `prescription_${Date.now()}.jpg`);
         } catch (error) {
-          console.error('Error converting base64 to File:', error);
+          console.error("Error converting base64 to File:", error);
           return null;
         }
       });
 
-      const files = (await Promise.all(filePromises)).filter(file => file !== null) as File[];
+      const files = (await Promise.all(filePromises)).filter(
+        (file) => file !== null
+      ) as File[];
 
-      const response = await LabReportService.updateLabReport(
-        labReportId,
+      const response = await PrescriptionService.updatePrescription(
+        prescriptionId,
         selectedDoctors[0].id,
         selectedDoctors[0].name,
         format(selectedDate, "yyyy-MM-dd"),
-        selectedTest_names.map((s) => s.id),
+        selectedSymptoms.map((s) => s.id),
         files // Pass only the uploaded files
       );
 
       if (response.status === "success") {
         // Clear localStorage
-        localStorage.removeItem("LabReportImages");
-        localStorage.removeItem("selectedTest_names");
+        localStorage.removeItem("PrescriptionImages");
+        localStorage.removeItem("selectedSymptoms");
         localStorage.removeItem("selectedDoctors");
         localStorage.removeItem("selectedDate");
-        localStorage.removeItem("removedLabReportApiImages");
-        localStorage.removeItem("removedLabReportTestNames");
+        localStorage.removeItem("removedPrescriptionApiImages");
+        localStorage.removeItem("removedPrescriptionSymptoms");
 
-        toast.success("LabReport updated successfully");
+        toast.success("Prescription updated successfully");
 
-        // Navigate back to labReport list after successful update
+        // Navigate back to prescription list after successful update
         setTimeout(() => {
-          router.push(`/view-patient/${patientId}?tab=lab-report`);
+          router.push(`/view-patient/${patientId}?tab=prescription`);
         }, 1000);
       } else {
-        toast.error(response.message || "Failed to update labreport");
+        toast.error(response.message || "Failed to update prescription");
       }
     } catch (error: any) {
-      console.error("Error updating labreport:", error);
+      console.error("Error updating prescription:", error);
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
-        "Failed to update labreport. Please try again.";
+        "Failed to update prescription. Please try again.";
       toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
   };
+  useEffect(() => {
+    // Cleanup function that runs when component unmounts
+    return () => {
+      // Only clear if navigating away from edit-related routes
+      const currentPath = window.location.pathname;
+      const currentQuery = new URLSearchParams(window.location.search);
 
+      const isStillInEditFlow =
+        currentPath.includes("/view-patient") &&
+        currentQuery.get("tab") === "prescription" &&
+        currentQuery.get("view") === "edit" &&
+        (currentQuery.get("prescriptionId") ||
+          currentQuery.get("editTags") === "true" ||
+          currentQuery.get("imageAttachment") === "true");
+
+      if (!isStillInEditFlow) {
+        localStorage.removeItem("PrescriptionImages");
+        localStorage.removeItem("selectedSymptoms");
+        localStorage.removeItem("selectedDoctors");
+        localStorage.removeItem("selectedDate");
+        localStorage.removeItem("removedPrescriptionApiImages");
+        localStorage.removeItem("removedPrescriptionSymptoms");
+      }
+    };
+  }, []);
   return (
     <>
       {loading && (
@@ -841,10 +929,10 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       <ToastContainer />
       <div className="patient-view-content-header">
         <h5 className="card-title">
-          <span className="icon prescription"></span> Edit Lab Report
+          <span className="icon prescription"></span> Edit Prescription
         </h5>
         <Link
-          href={`/view-patient/${patientId}?tab=lab-report`}
+          href={`/view-patient/${patientId}?tab=prescription`}
           className="btn-patient-sm-add"
         >
           Cancel
@@ -889,18 +977,43 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                           borderRadius: "8px",
                         }}
                       >
+                        {loadingImages[index] && (
+                          <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#f8f9fa',
+                            borderRadius: '8px',
+                            zIndex: 1
+                          }}>
+                            <div className="spinner-border text-primary" style={{ width: '2rem', height: '2rem' }} role="status">
+                              <span className="visually-hidden">Loading...</span>
+                            </div>
+                          </div>
+                        )}
                         <img
-                          src={image.url || image} // Handle both API image URLs and base64 strings
+                          src={image.url || image}
                           alt={`Lab Report ${index + 1}`}
                           style={{
                             width: "100%",
                             height: "100%",
                             objectFit: "contain",
+                            opacity: loadingImages[index] ? 0 : 1,
+                          }}
+                          onLoad={() => {
+                            setLoadingImages(prev => ({ ...prev, [index]: false }));
+                          }}
+                          onError={() => {
+                            setLoadingImages(prev => ({ ...prev, [index]: false }));
                           }}
                         />
                         {/* Show different remove buttons based on image type */}
                         {image.id ? (
-                          // For API-fetched images
                           <button
                             type="button"
                             className="btn-close position-absolute top-0 end-0 m-2"
@@ -910,7 +1023,6 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                             <FontAwesomeIcon icon={faTrash} color="red" />
                           </button>
                         ) : (
-                          // For newly uploaded images
                           <button
                             type="button"
                             className="btn-close position-absolute top-0 end-0 m-2"
@@ -1051,7 +1163,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                       <div className="modal-body pt-5 pb-3">
                         <h4>
                           Are you sure you <br /> want to Delete This
-                          LabReport Image?
+                          Prescription Image?
                         </h4>
                         <h4>
                           Items That Have Been In Trash <br /> More Than 30 Days
@@ -1261,13 +1373,13 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                 <label>Tags</label>
                 <div
                   className={`position-relative ${
-                    formErrors.test_names ? "is-invalid" : ""
+                    formErrors.symptoms ? "is-invalid" : ""
                   }`}
                 >
                   <div className="d-flex flex-wrap gap-2 bg-light rounded prescibe-by-area symtom-tag-area">
-                    {selectedTest_names.map((test_name) => (
+                    {selectedSymptoms.map((symptom) => (
                       <span
-                        key={test_name.id}
+                        key={symptom.id}
                         className="d-inline-flex align-items-center"
                         style={{
                           backgroundColor: "#e9ecef",
@@ -1276,10 +1388,10 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                           fontSize: "14px",
                         }}
                       >
-                        {test_name.description}
+                        {symptom.description}
                         <button
                           type="button"
-                          onClick={() => removeTest_name(test_name.id)}
+                          onClick={() => removeSymptom(symptom.id)}
                           className="btn btn-link p-0 ms-2"
                           style={{
                             textDecoration: "none",
@@ -1311,7 +1423,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                     </span>
                   </div>
 
-                  {showTest_namesList && (
+                  {showSymptomsList && (
                     <div
                       className="position-absolute w-100 bg-white border rounded shadow-sm"
                       style={{
@@ -1327,14 +1439,14 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                             value={newTag}
                             onChange={(e) => setNewTag(e.target.value)}
                             className="form-control form-control-sm"
-                            placeholder="Search or add new test_name"
+                            placeholder="Search or add new Symptom"
                             autoFocus
                           />
                           {newTag && (
                             <button
                               type="button"
                               className="btn btn-primary btn-sm"
-                              onClick={handleAddNewTest_name}
+                              onClick={handleAddNewSymptom}
                             >
                               <FontAwesomeIcon icon={faPlus} />
                             </button>
@@ -1342,44 +1454,44 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                         </div>
                       </div>
                       <div className="test-name-list">
-                        {test_names
+                        {symptoms
                           .filter(
                             (t) =>
                               t.description
                                 .toLowerCase()
                                 .includes(newTag.toLowerCase()) &&
-                              !selectedTest_names.find(
+                              !selectedSymptoms.find(
                                 (selected) => selected.id === t.id
                               )
                           )
-                          .map((test_name) => (
+                          .map((symptom) => (
                             <button
-                              key={test_name.id}
+                              key={symptom.id}
                               className="dropdown-item py-2 px-3 text-start w-100"
-                              onClick={() => handleTest_nameselect(test_name)}
+                              onClick={() => handleSymptomSelect(symptom)}
                             >
-                              {test_name.description}
+                              {symptom.description}
                             </button>
                           ))}
-                        {isLoadingTest_names && (
+                        {isLoadingSymptoms && (
                           <div className="p-3 text-center text-muted">
-                            Loading test names...
+                            Loading symptoms...
                           </div>
                         )}
-                        {!isLoadingTest_names &&
-                          test_names.filter(
+                        {!isLoadingSymptoms &&
+                          symptoms.filter(
                             (t) =>
                               t.description
                                 .toLowerCase()
                                 .includes(newTag.toLowerCase()) &&
-                              !selectedTest_names.find(
+                              !selectedSymptoms.find(
                                 (selected) => selected.id === t.id
                               )
                           ).length === 0 && (
                             <div className="p-3 text-center text-muted">
                               {newTag
-                                ? "Press + to add new test name"
-                                : "No test names available"}
+                                ? "Press + to add new symptom"
+                                : "No symptoms available"}
                             </div>
                           )}
                       </div>
@@ -1388,9 +1500,9 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                 </div>
 
                 {/* Error Message */}
-                {formErrors.testNames && (
+                {formErrors.symptoms && (
                   <div className="invalid-feedback d-block">
-                    {formErrors.testNames}
+                    {formErrors.symptoms}
                   </div>
                 )}
               </div>
@@ -1412,7 +1524,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   );
 };
 
-export default LabReportEdit;
+export default PrescriptionEdit;
 function setSelectedDate(arg0: Date) {
   throw new Error("Function not implemented.");
 }
