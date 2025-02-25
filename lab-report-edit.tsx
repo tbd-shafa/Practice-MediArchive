@@ -12,11 +12,7 @@ import {
 } from "../../../services/PrescriptionService";
 import { LabReportService } from "../../../services/LabReportService";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCalendar,
-  faTrash,
-  faPlus,
-} from "@fortawesome/free-solid-svg-icons";
+import { faCalendar, faTrash, faPlus } from "@fortawesome/free-solid-svg-icons";
 import Slider from "react-slick";
 import React, { useEffect, useRef, useState } from "react";
 import "slick-carousel/slick/slick.css";
@@ -32,7 +28,6 @@ interface Image {
   id: number; // or string, depending on your data
   url: string;
 }
-
 
 const getLocalStorage = (key: string, defaultValue: any = null) => {
   if (typeof window !== "undefined") {
@@ -83,7 +78,8 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   const [isLoadingTest_names, setIsLoadingTest_names] = useState(true);
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [selectedDoctors, setSelectedDoctors] = useState<Doctor[]>([]);
+  const [selectedDoctorsLabReportEdit, setSelectedDoctorsLabReportEdit] =
+    useState<Doctor[]>([]);
   const [showDoctorsList, setShowDoctorsList] = useState(false);
   const [newDoctor, setNewDoctor] = useState("");
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
@@ -91,7 +87,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [showImageDeleteModal, setShowImageDeleteModal] = useState(false);
   const [imageToDelete, setImageToDelete] = useState<any>(null); // Track the image to be deleted
-  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
+  const [loadingImages, setLoadingImages] = useState<{ [key: number]: boolean }>({});
+
+  const [isSelfSelected, setIsSelfSelected] = useState(false);
+  // Add image load handler
+ 
 
   const [removedApiImageIds, setRemovedApiImageIds] = useState<number[]>(() => {
     const stored = getLocalStorage("removedLabReportApiImages");
@@ -130,7 +130,12 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         const filteredUploadedImages = uploadedImages.filter((uploadedImg) => {
           return !apiImages.some((apiImg) => apiImg.url === uploadedImg);
         });
-
+        // Initialize loading state for all images
+        const initialLoadingState = [...apiImages, ...filteredUploadedImages].reduce(
+          (acc, _, index) => ({ ...acc, [index]: true }),
+          {}
+        );
+        setLoadingImages(initialLoadingState);
         setFormData((prev) => ({
           ...prev,
           date: response.data.date,
@@ -139,24 +144,12 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           test_names: response.data.test_names,
         }));
 
-        // Set the selected doctor from the labreport data
-        // if (data.doctor) {
-        //   const doctorData = {
-        //     id: data.doctor.id,
-        //     name: data.doctor.name,
-        //     client_id: data.client_id,
-        //     created_at: data.created_at,
-        //     updated_at: data.updated_at,
-        //   };
-        //   setSelectedDoctors([doctorData]);
-        //   localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
-        // }
         // Check for locally selected doctor first
-        const storedDoctors = getLocalStorage("selectedDoctors");
+        const storedDoctors = getLocalStorage("selectedDoctorsLabReportEdit");
 
         if (storedDoctors && storedDoctors.length > 0) {
           // If we have a locally selected doctor, keep using that
-          setSelectedDoctors(storedDoctors);
+          setSelectedDoctorsLabReportEdit(storedDoctors);
         } else if (data.doctor) {
           // Only set the API doctor if no local selection exists
           const doctorData = {
@@ -166,38 +159,13 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
             created_at: data.created_at,
             updated_at: data.updated_at,
           };
-          setSelectedDoctors([doctorData]);
-          localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
+          setSelectedDoctorsLabReportEdit([doctorData]);
+          localStorage.setItem(
+            "selectedDoctorsLabReportEdit",
+            JSON.stringify([doctorData])
+          );
         }
 
-        // Set the selected test_names from the labreport data
-        // if (data.test_names && Array.isArray(data.test_names)) {
-        //   // Filter out removed API test names
-        //   const apiTestNames = data.test_names.filter(
-        //     (test: any) => !removedApiTestNameIds.includes(test.id)
-        //   );
-
-        //   // Get any existing test_names from localStorage
-        //   const storedTest_names = getLocalStorage("selectedTest_names");
-        //   const parsedStoredTest_names = storedTest_names
-        //     ? storedTest_names
-        //     : [];
-
-        //   // Combine filtered API Test_names with stored Test_names, removing duplicates
-        //   const combinedTest_names = [
-        //     ...apiTestNames,
-        //     ...parsedStoredTest_names,
-        //   ].filter(
-        //     (test_name, index, self) =>
-        //       index === self.findIndex((s) => s.id === test_name.id)
-        //   );
-
-        //   setSelectedTest_names(combinedTest_names);
-        //   localStorage.setItem(
-        //     "selectedTest_names",
-        //     JSON.stringify(combinedTest_names)
-        //   );
-        // }
         if (data.test_names && Array.isArray(data.test_names)) {
           // Check for locally stored test_names first
           const storedTest_names = getLocalStorage("selectedTest_names");
@@ -230,7 +198,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         setLoading(false);
       } catch (error) {
         console.error("Failed to fetch labreport:", error);
-        toast.error("Failed to fetch labreport data");
+
         setLoading(false);
       }
     };
@@ -261,10 +229,13 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
   const handleDoctorSelect = (doctor: Doctor) => {
     const updatedDoctors = [doctor];
-    setSelectedDoctors(updatedDoctors);
+    setSelectedDoctorsLabReportEdit(updatedDoctors);
 
     // Store selected doctors in localStorage
-    localStorage.setItem("selectedDoctors", JSON.stringify(updatedDoctors));
+    localStorage.setItem(
+      "selectedDoctorsLabReportEdit",
+      JSON.stringify(updatedDoctors)
+    );
 
     setShowDoctorsList(false);
     setNewDoctor("");
@@ -286,10 +257,13 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         setDoctors((prev) => [...prev, newDoctorData]);
 
         const updatedDoctors = [newDoctorData];
-        setSelectedDoctors(updatedDoctors);
+        setSelectedDoctorsLabReportEdit(updatedDoctors);
 
         // Store selected doctors in localStorage
-        localStorage.setItem("selectedDoctors", JSON.stringify(updatedDoctors));
+        localStorage.setItem(
+          "selectedDoctorsLabReportEdit",
+          JSON.stringify(updatedDoctors)
+        );
 
         setShowDoctorsList(false);
         setNewDoctor("");
@@ -301,11 +275,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   };
 
   useEffect(() => {
-    const storedDoctors = getLocalStorage("selectedDoctors");
+    const storedDoctors = getLocalStorage("selectedDoctorsLabReportEdit");
     if (storedDoctors) {
       try {
         const parsedDoctors = storedDoctors;
-        setSelectedDoctors(parsedDoctors);
+        setSelectedDoctorsLabReportEdit(parsedDoctors);
       } catch (error) {
         console.error("Error parsing stored doctors:", error);
       }
@@ -313,7 +287,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   }, []);
 
   const removeDoctor = (doctorId: number) => {
-    setSelectedDoctors([]);
+    setSelectedDoctorsLabReportEdit([]);
   };
   // handle doctor selection end
 
@@ -455,24 +429,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       );
       return;
     }
-
-    // Update loaded images state
-    setLoadedImages(prev => {
-      const newLoaded = new Set(prev);
-      // Remove the deleted index and adjust remaining indices
-      newLoaded.delete(indexToRemove);
-      const adjustedLoaded = new Set<number>();
-      newLoaded.forEach(idx => {
-        if (idx < indexToRemove) {
-          adjustedLoaded.add(idx);
-        } else if (idx > indexToRemove) {
-          adjustedLoaded.add(idx - 1);
-        }
-      });
-      return adjustedLoaded;
-    });
-
     setFormData((prev) => {
+      // Get the image to remove from the full array
+      const imageToRemove = prev.images[indexToRemove];
+
+      // Filter out the image to remove
       const updatedImages = prev.images.filter(
         (_, index) => index !== indexToRemove
       );
@@ -805,7 +766,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       hasError = true;
     }
 
-    if (selectedDoctors.length === 0) {
+    if (!isSelfSelected && selectedDoctorsLabReportEdit.length === 0) {
       errors.doctor = "Doctor is required";
       hasError = true;
     }
@@ -852,11 +813,16 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       const files = (await Promise.all(filePromises)).filter(
         (file) => file !== null
       ) as File[];
+      const doctorId = isSelfSelected ? 0 : selectedDoctorsLabReportEdit[0].id;
+      const doctorName = isSelfSelected
+        ? "Self"
+        : selectedDoctorsLabReportEdit[0].name;
 
       const response = await LabReportService.updateLabReport(
         labReportId,
-        selectedDoctors[0].id,
-        selectedDoctors[0].name,
+        doctorId,
+        doctorName,
+
         format(selectedDate, "yyyy-MM-dd"),
         selectedTest_names.map((s) => s.id),
         files // Pass only the uploaded files
@@ -866,7 +832,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         // Clear localStorage
         localStorage.removeItem("LabReportImages");
         localStorage.removeItem("selectedTest_names");
-        localStorage.removeItem("selectedDoctors");
+        localStorage.removeItem("selectedDoctorsLabReportEdit");
         localStorage.removeItem("selectedDate");
         localStorage.removeItem("removedLabReportApiImages");
         localStorage.removeItem("removedLabReportTestNames");
@@ -910,7 +876,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       if (!isStillInEditFlow) {
         localStorage.removeItem("LabReportImages");
         localStorage.removeItem("selectedTest_names");
-        localStorage.removeItem("selectedDoctors");
+        localStorage.removeItem("selectedDoctorsLabReportEdit");
         localStorage.removeItem("selectedDate");
         localStorage.removeItem("removedLabReportApiImages");
         localStorage.removeItem("removedLabReportTestNames");
@@ -939,11 +905,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           Cancel
         </Link>
       </div>
-      {(selectedDoctors.length > 0 || selectedDate) && (
+      {(selectedDoctorsLabReportEdit.length > 0 || selectedDate) && (
         <div className="search-by-name">
-          {selectedDoctors.length > 0 && (
+          {selectedDoctorsLabReportEdit.length > 0 && (
             <p>
-              Doctors: <span>{selectedDoctors[0].name}</span>
+              Doctors: <span>{selectedDoctorsLabReportEdit[0].name}</span>
             </p>
           )}
           {selectedDate && (
@@ -979,7 +945,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                         }}
                       >
                         {/* Loading Placeholder */}
-                        {!loadedImages.has(index) && (
+                        {loadingImages[index] && (
                           <div
                             style={{
                               position: "absolute",
@@ -1006,7 +972,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                             </div>
                           </div>
                         )}
-                       
+
                         {/* Actual Image */}
                         <img
                           src={image.url || image}
@@ -1015,11 +981,14 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                             width: "100%",
                             height: "100%",
                             objectFit: "contain",
-                            opacity: loadedImages.has(index) ? 1 : 0,
+                            opacity: loadingImages[index] ? 0 : 1,
                             transition: "opacity 0.3s ease",
                           }}
                           onLoad={() => {
-                            setLoadedImages(prev => new Set(Array.from(prev).concat(index)));
+                            setLoadingImages((prev) => ({
+                              ...prev,
+                              [index]: false,
+                            }));
                           }}
                         />
                         {/* Show different remove buttons based on image type */}
@@ -1242,15 +1211,51 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                 <label>
                   Prescribe by <span>(required)</span>
                 </label>
+                <div className="form-check">
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    id="selfCheckbox"
+                    checked={
+                      isSelfSelected ||
+                      selectedDoctorsLabReportEdit.some(
+                        (doctor) => doctor.name === "Self"
+                      )
+                    }
+                    onChange={() => {
+                      const newSelfSelected = !isSelfSelected;
+                      setIsSelfSelected(newSelfSelected);
+                      localStorage.setItem(
+                        "isSelfSelected",
+                        JSON.stringify(newSelfSelected)
+                      );
+
+                      if (newSelfSelected) {
+                        setSelectedDoctorsLabReportEdit([]); // Clear selected doctors if Self is checked
+                      } else {
+                        // Restore previously selected doctors if Self is unchecked
+                        const storedDoctors = getLocalStorage(
+                          "selectedDoctorsLabReportEdit"
+                        );
+                        if (storedDoctors) {
+                          setSelectedDoctorsLabReportEdit(storedDoctors);
+                        }
+                      }
+                    }}
+                  />
+
+                  <label className="form-check-label" htmlFor="selfCheckbox">
+                    Self
+                  </label>
+                </div>
                 <div
                   className={`position-relative ${
                     formErrors.doctor ? "is-invalid" : ""
                   }`}
                 >
                   <div className="d-flex flex-wrap gap-2 bg-light rounded prescibe-by-area">
-                    {selectedDoctors.map((doctor) => (
+                    {isSelfSelected ? (
                       <span
-                        key={doctor.id}
                         className="d-inline-flex align-items-center"
                         style={{
                           backgroundColor: "#e9ecef",
@@ -1259,10 +1264,10 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                           fontSize: "14px",
                         }}
                       >
-                        {doctor.name}
+                        Self
                         <button
                           type="button"
-                          onClick={() => removeDoctor(doctor.id)}
+                          onClick={() => setIsSelfSelected(false)} // Allow unchecking
                           className="btn btn-link p-0 ms-2"
                           style={{
                             textDecoration: "none",
@@ -1274,22 +1279,50 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                           ×
                         </button>
                       </span>
-                    ))}
-
-                    {!selectedDoctors.length && (
-                      <button
-                        type="button"
-                        onClick={() => setShowDoctorsList(!showDoctorsList)}
-                        className="btn btn-link p-0 text-primary d-flex align-items-center"
-                        style={{
-                          textDecoration: "none",
-                          fontSize: "14px",
-                          width: "100%",
-                        }}
-                      >
-                        Doctor Name
-                      </button>
+                    ) : (
+                      selectedDoctorsLabReportEdit.map((doctor) => (
+                        <span
+                          key={doctor.id}
+                          className="d-inline-flex align-items-center"
+                          style={{
+                            backgroundColor: "#e9ecef",
+                            padding: "4px 12px",
+                            borderRadius: "16px",
+                            fontSize: "14px",
+                          }}
+                        >
+                          {doctor.name}
+                          <button
+                            type="button"
+                            onClick={() => removeDoctor(doctor.id)}
+                            className="btn btn-link p-0 ms-2"
+                            style={{
+                              textDecoration: "none",
+                              color: "#6c757d",
+                              fontSize: "16px",
+                              lineHeight: 1,
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))
                     )}
+                    {!selectedDoctorsLabReportEdit.length &&
+                      !isSelfSelected && (
+                        <button
+                          type="button"
+                          onClick={() => setShowDoctorsList(!showDoctorsList)}
+                          className="btn btn-link p-0 text-primary d-flex align-items-center"
+                          style={{
+                            textDecoration: "none",
+                            fontSize: "14px",
+                            width: "100%",
+                          }}
+                        >
+                          Doctor Name
+                        </button>
+                      )}
                   </div>
 
                   {showDoctorsList && (
@@ -1311,6 +1344,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                             placeholder="Search or add new doctor"
                             autoFocus
                             style={{ maxHeight: 30, fontWeight: 400 }}
+                            disabled={isSelfSelected} // Disable if Self is checked
                           />
                           {newDoctor && (
                             <button
@@ -1334,7 +1368,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                               d.name
                                 .toLowerCase()
                                 .includes(newDoctor.toLowerCase()) &&
-                              !selectedDoctors.find(
+                              !selectedDoctorsLabReportEdit.find(
                                 (selected) => selected.id === d.id
                               )
                           )
@@ -1358,7 +1392,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                               d.name
                                 .toLowerCase()
                                 .includes(newDoctor.toLowerCase()) &&
-                              !selectedDoctors.find(
+                              !selectedDoctorsLabReportEdit.find(
                                 (selected) => selected.id === d.id
                               )
                           ).length === 0 && (
