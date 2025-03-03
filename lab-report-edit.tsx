@@ -51,13 +51,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   const router = useRouter();
   const [formData, setFormData] = useState({
     date: "",
-    //images: [] as string[],
     images: [],
     doctors: [] as { id: number; name: string }[],
     test_names: [] as { id: number; description: string }[],
   });
 
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
@@ -86,12 +84,14 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   const [loading, setLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [showImageDeleteModal, setShowImageDeleteModal] = useState(false);
-  const [imageToDelete, setImageToDelete] = useState<any>(null); // Track the image to be deleted
-  const [loadingImages, setLoadingImages] = useState<{ [key: number]: boolean }>({});
-
+  const [imageToDelete, setImageToDelete] = useState<any>(null);
   const [isSelfSelected, setIsSelfSelected] = useState(false);
-  // Add image load handler
- 
+
+  const [isSelfChecked, setIsSelfChecked] = useState(false);
+
+  const handleCheckboxChange = (e) => {
+    setIsSelfChecked(e.target.checked);
+  };
 
   const [removedApiImageIds, setRemovedApiImageIds] = useState<number[]>(() => {
     const stored = getLocalStorage("removedLabReportApiImages");
@@ -104,7 +104,9 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       return stored ? stored : [];
     }
   );
-
+  const [loadingImages, setLoadingImages] = useState<{
+    [key: number]: boolean;
+  }>({});
   // Fetch lab report data on component mount
   useEffect(() => {
     const fetchLabReport = async () => {
@@ -130,12 +132,14 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         const filteredUploadedImages = uploadedImages.filter((uploadedImg) => {
           return !apiImages.some((apiImg) => apiImg.url === uploadedImg);
         });
+
         // Initialize loading state for all images
-        const initialLoadingState = [...apiImages, ...filteredUploadedImages].reduce(
+        const initialLoadingState = [...apiImages].reduce(
           (acc, _, index) => ({ ...acc, [index]: true }),
           {}
         );
         setLoadingImages(initialLoadingState);
+
         setFormData((prev) => ({
           ...prev,
           date: response.data.date,
@@ -227,7 +231,46 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     fetchDoctors();
   }, []);
 
+  useEffect(() => {
+    // Check if Self is present in selectedDoctorsLabReportEdit
+    const hasSelfDoctor = selectedDoctorsLabReportEdit.some(
+      (doctor) => doctor.name === "Self"
+    );
+    setIsSelfSelected(hasSelfDoctor);
+  }, [selectedDoctorsLabReportEdit]);
+
+  const handleSelfCheckboxChange = () => {
+    const newSelfSelected = !isSelfSelected;
+    setIsSelfSelected(newSelfSelected);
+    
+    if (newSelfSelected) {
+      // Add Self doctor when checkbox is checked
+      const selfDoctor = {
+        id: 0,
+        name: "Self",
+        client_id: 0,
+        created_at: "",
+        updated_at: "",
+      };
+      setSelectedDoctorsLabReportEdit([selfDoctor]);
+      localStorage.setItem(
+        "selectedDoctorsLabReportEdit",
+        JSON.stringify([selfDoctor])
+      );
+    } else {
+      // Remove Self doctor when checkbox is unchecked
+      setSelectedDoctorsLabReportEdit([]);
+      localStorage.setItem(
+        "selectedDoctorsLabReportEdit",
+        JSON.stringify([])
+      );
+    }
+  };
+
   const handleDoctorSelect = (doctor: Doctor) => {
+    // If selecting a doctor, uncheck Self
+    setIsSelfSelected(false);
+    
     const updatedDoctors = [doctor];
     setSelectedDoctorsLabReportEdit(updatedDoctors);
 
@@ -287,8 +330,21 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   }, []);
 
   const removeDoctor = (doctorId: number) => {
-    setSelectedDoctorsLabReportEdit([]);
+    const updatedDoctors = selectedDoctorsLabReportEdit.filter((doc) => doc.id !== doctorId);
+    setSelectedDoctorsLabReportEdit(updatedDoctors);
+    
+    // Update localStorage with the new list (empty array if no doctors left)
+    localStorage.setItem(
+      "selectedDoctorsLabReportEdit",
+      JSON.stringify(updatedDoctors)
+    );
+
+    // If no doctors are left, ensure Self is unchecked
+    if (updatedDoctors.length === 0) {
+      setIsSelfSelected(false);
+    }
   };
+
   // handle doctor selection end
 
   const sliderRef = useRef<any>(null);
@@ -580,35 +636,6 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   // handle image end
 
   // handle Test_names start
-  // Handle Test_names from edit-tags page
-  // useEffect(() => {
-  //   const { selectedtest_names } = router.query;
-
-  //   if (selectedtest_names && typeof selectedtest_names === "string") {
-  //     try {
-  //       const parsedTest_names = JSON.parse(selectedtest_names);
-  //       // Update both state and localStorage
-  //       setSelectedTest_names(parsedTest_names);
-  //       localStorage.setItem(
-  //         "selectedTest_names",
-  //         JSON.stringify(parsedTest_names)
-  //       );
-
-  //       // Clean up the URL
-  //       const { selectedtest_names: _, ...restQuery } = router.query;
-  //       router.replace(
-  //         {
-  //           pathname: router.pathname,
-  //           query: restQuery,
-  //         },
-  //         undefined,
-  //         { shallow: true }
-  //       );
-  //     } catch (error) {
-  //       console.error("Error parsing selected test_names:", error);
-  //     }
-  //   }
-  // }, [router.query.selectedtest_names]); // Only run when selectedtest_names changes
   useEffect(() => {
     const { selectedtest_names } = router.query;
 
@@ -770,12 +797,6 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       errors.doctor = "Doctor is required";
       hasError = true;
     }
-
-    // if (selectedTest_names.length === 0) {
-    //   errors.test_names = "At least one Tag is required";
-    //   hasError = true;
-
-    // }
 
     // Check if there are any images (either from API or uploaded)
     const apiImages = formData.images.filter((img) => img.id);
@@ -1208,94 +1229,52 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
             <div className="col-md-6 mb-3 form-input-area">
               <div className="form-group">
-                <label>
-                  Prescribe by <span>(required)</span>
-                </label>
-                <div className="form-check">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    id="selfCheckbox"
-                    checked={
-                      isSelfSelected ||
-                      selectedDoctorsLabReportEdit.some(
-                        (doctor) => doctor.name === "Self"
-                      )
-                    }
-                    onChange={() => {
-                      const newSelfSelected = !isSelfSelected;
-                      setIsSelfSelected(newSelfSelected);
-                      localStorage.setItem(
-                        "isSelfSelected",
-                        JSON.stringify(newSelfSelected)
-                      );
-
-                      if (newSelfSelected) {
-                        setSelectedDoctorsLabReportEdit([]); // Clear selected doctors if Self is checked
-                      } else {
-                        // Restore previously selected doctors if Self is unchecked
-                        const storedDoctors = getLocalStorage(
-                          "selectedDoctorsLabReportEdit"
-                        );
-                        if (storedDoctors) {
-                          setSelectedDoctorsLabReportEdit(storedDoctors);
-                        }
-                      }
-                    }}
-                  />
-
-                  <label className="form-check-label" htmlFor="selfCheckbox">
-                    Self
+                <div className="d-flex align-items-center justify-content-between">
+                  <label>
+                    Prescribe by <span>(required)</span>
                   </label>
+                  <div className="form-check">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="selfCheckbox"
+                      checked={isSelfSelected}
+                      onChange={handleSelfCheckboxChange}
+                    />
+
+                    <label
+                      className="form-check-label mb-0 pt-1"
+                      htmlFor="selfCheckbox"
+                    >
+                      Self
+                    </label>
+                  </div>
                 </div>
+
                 <div
-                  className={`position-relative ${
+                  className={`doctor-input-area position-relative ${
                     formErrors.doctor ? "is-invalid" : ""
-                  }`}
+                  } ${isSelfSelected ? "disabled" : ""}`}
                 >
                   <div className="d-flex flex-wrap gap-2 bg-light rounded prescibe-by-area">
-                    {isSelfSelected ? (
-                      <span
-                        className="d-inline-flex align-items-center"
-                        style={{
-                          backgroundColor: "#e9ecef",
-                          padding: "4px 12px",
-                          borderRadius: "16px",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Self
-                        <button
-                          type="button"
-                          onClick={() => setIsSelfSelected(false)} // Allow unchecking
-                          className="btn btn-link p-0 ms-2"
-                          style={{
-                            textDecoration: "none",
-                            color: "#6c757d",
-                            fontSize: "16px",
-                            lineHeight: 1,
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ) : (
+                    {!isSelfSelected &&
                       selectedDoctorsLabReportEdit.map((doctor) => (
                         <span
                           key={doctor.id}
                           className="d-inline-flex align-items-center"
                           style={{
-                            backgroundColor: "#e9ecef",
+                            backgroundColor: "transparent",
                             padding: "4px 12px",
                             borderRadius: "16px",
-                            fontSize: "14px",
+                            fontSize: "18px",
+                            fontWeight: "600",
                           }}
                         >
                           {doctor.name}
                           <button
                             type="button"
                             onClick={() => removeDoctor(doctor.id)}
-                            className="btn btn-link p-0 ms-2"
+                            className="btn btn-link p-0"
                             style={{
                               textDecoration: "none",
                               color: "#6c757d",
@@ -1306,8 +1285,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                             ×
                           </button>
                         </span>
-                      ))
-                    )}
+                      ))}
                     {!selectedDoctorsLabReportEdit.length &&
                       !isSelfSelected && (
                         <button
@@ -1343,20 +1321,20 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                             className="form-control form-control-sm"
                             placeholder="Search or add new doctor"
                             autoFocus
-                            style={{ maxHeight: 30, fontWeight: 400 }}
+                            style={{ maxHeight: 45, fontWeight: 400 }}
                             disabled={isSelfSelected} // Disable if Self is checked
                           />
                           {newDoctor && (
                             <button
-                              className="btn btn-sm"
+                              className="add-new-btn"
                               onClick={handleAddNewDoctor}
                               style={{
-                                height: 38,
+                                height: 45,
                                 padding: 0,
                                 paddingRight: 10,
                               }}
                             >
-                              <FontAwesomeIcon icon={faPlus} color="#1A72E8" />
+                              + Add
                             </button>
                           )}
                         </div>
