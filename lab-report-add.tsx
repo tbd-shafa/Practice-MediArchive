@@ -188,6 +188,7 @@ const LabReportAdd: FC<LabReportAddProps> = ({ patientId }) => {
     setSelectedLabReportAddDcotors((prev) =>
       prev.filter((doc) => doc.id !== doctorId)
     );
+    localStorage.removeItem("selectedLabReportAddDcotors");
   };
 
   useEffect(() => {
