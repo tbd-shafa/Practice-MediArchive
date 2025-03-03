@@ -134,6 +134,7 @@ const LabReportAdd: FC<LabReportAddProps> = ({ patientId }) => {
   };
 
   const handleAddNewLabReportAddDcotor = async () => {
+    event.preventDefault(); // Prevent unintended navigation
     if (!newLabReportAddDcotor.trim()) return;
 
     try {
@@ -161,12 +162,14 @@ const LabReportAdd: FC<LabReportAddProps> = ({ patientId }) => {
 
         setShowLabReportAddDcotorsList(false);
         setNewLabReportAddDcotor("");
+        toast.success("New Doctor added successfully");
       }
     } catch (error) {
       console.error("Error adding new LabReportAddDcotor:", error);
+      toast.error("Failed to add new doctor");
     }
   };
-
+ 
   useEffect(() => {
     const storedLabReportAddDcotors = localStorage.getItem(
       "selectedLabReportAddDcotors"
