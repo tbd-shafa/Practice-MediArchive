@@ -108,7 +108,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
   // Add this state at the top of your component
   const [loadingImages, setLoadingImages] = useState<{ [key: number]: boolean }>({});
 
-  // Fetch prescription data on component mount
+  // Fetch prescription data only on mount
   useEffect(() => {
     const fetchPrescription = async () => {
       try {
@@ -116,6 +116,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
           `${config.API_ENDPOINTS.PRESCRIPTION_ADD}/${prescriptionId}/`
         );
         const data = response.data;
+        
         // Get existing uploaded images from localStorage
         const storedImages = getLocalStorage("PrescriptionImages");
         const uploadedImages = storedImages ? storedImages : [];
@@ -134,39 +135,24 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
         });
 
         // Initialize loading state for all images
-        const initialLoadingState = [...apiImages, ...filteredUploadedImages].reduce(
+        const initialLoadingState = [...apiImages].reduce(
           (acc, _, index) => ({ ...acc, [index]: true }),
           {}
         );
         setLoadingImages(initialLoadingState);
 
-        setFormData({
-          date: response.data.date,
+        setFormData((prev) => ({
+          ...prev,
           images: [...apiImages, ...filteredUploadedImages],
           doctors: response.data.doctors,
           symptoms: response.data.symptoms,
-        });
+        }));
 
-        // Set the selected doctor from the prescription data
-        // if (data.doctor) {
-        //   const doctorData = {
-        //     id: data.doctor.id,
-        //     name: data.doctor.name,
-        //     client_id: data.client_id,
-        //     created_at: data.created_at,
-        //     updated_at: data.updated_at,
-        //   };
-        //   setSelectedDoctors([doctorData]);
-        //   localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
-        // }
-        // Check for locally selected doctor first
+        // Initialize doctors
         const storedDoctors = getLocalStorage("selectedDoctors");
-
         if (storedDoctors && storedDoctors.length > 0) {
-          // If we have a locally selected doctor, keep using that
           setSelectedDoctors(storedDoctors);
         } else if (data.doctor) {
-          // Only set the API doctor if no local selection exists
           const doctorData = {
             id: data.doctor.id,
             name: data.doctor.name,
@@ -177,62 +163,30 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
           setSelectedDoctors([doctorData]);
           localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
         }
-        // Set the selected symptoms from the prescription data
-        // if (data.symptoms && Array.isArray(data.symptoms)) {
-        //    // Filter out removed API symptoms
-        //    const apiSymptoms = data.symptoms.filter(
-        //     (test: any) => !removedApiSymptomIds.includes(test.id)
-        //   );
 
-        //   // Get any existing symptoms from localStorage
-        //   const storedSymptoms = getLocalStorage("selectedSymptoms");
-        //   const parsedStoredSymptoms = storedSymptoms ? storedSymptoms : [];
-
-        //   // Combine API symptoms with any stored symptoms, removing duplicates
-        //   const combinedSymptoms  = [
-        //     ...apiSymptoms ,
-        //     ...parsedStoredSymptoms ,
-        //   ].filter(
-        //     (symptom, index, self) =>
-        //       index === self.findIndex((s) => s.id === symptom.id)
-        //   );
-
-        //   setSelectedSymptoms(combinedSymptoms);
-        //   localStorage.setItem(
-        //     "selectedSymptoms",
-        //     JSON.stringify(combinedSymptoms)
-        //   );
-        // }
-
+        // Initialize symptoms
         if (data.symptoms && Array.isArray(data.symptoms)) {
-          // Check for locally stored symptoms first
           const storedSymptoms = getLocalStorage("selectedSymptoms");
-
           if (storedSymptoms && storedSymptoms.length > 0) {
-            // If we have locally stored symptoms, use those instead of API data
             setSelectedSymptoms(storedSymptoms);
           } else {
-            // If no local storage, use API data
             const apiSymptoms = data.symptoms.filter(
               (test: any) => !removedApiSymptomIds.includes(test.id)
             );
             setSelectedSymptoms(apiSymptoms);
-            localStorage.setItem(
-              "selectedSymptoms",
-              JSON.stringify(apiSymptoms)
-            );
+            localStorage.setItem("selectedSymptoms", JSON.stringify(apiSymptoms));
           }
         }
 
-        // Only set the date from API if there's no date in localStorage
+        // Initialize date
         const storedDate = getLocalStorage("selectedDate");
-        if (!storedDate) {
+        if (storedDate) {
+          setSelectedDate(new Date(storedDate));
+        } else {
           setSelectedDate(new Date(data.date));
-          localStorage.setItem(
-            "selectedDate",
-            new Date(data.date).toISOString()
-          );
+          localStorage.setItem("selectedDate", new Date(data.date).toISOString());
         }
+
         setLoading(false);
       } catch (error) {
         console.error("Failed to fetch prescription:", error);
@@ -241,7 +195,18 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
     };
 
     fetchPrescription();
-  }, [prescriptionId, removedApiSymptomIds]);
+  }, [prescriptionId]); // Remove removedApiSymptomIds from dependencies
+
+  // Handle symptom removal separately
+  useEffect(() => {
+    if (formData.symptoms) {
+      const updatedSymptoms = selectedSymptoms.filter(
+        symptom => !removedApiSymptomIds.includes(symptom.id)
+      );
+      setSelectedSymptoms(updatedSymptoms);
+      localStorage.setItem("selectedSymptoms", JSON.stringify(updatedSymptoms));
+    }
+  }, [removedApiSymptomIds]);
 
   // handle doctor selection start
   useEffect(() => {
@@ -276,6 +241,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
   };
 
   const handleAddNewDoctor = async () => {
+    event.preventDefault();
     if (!newDoctor.trim()) return;
 
     try {
@@ -298,6 +264,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
 
         setShowDoctorsList(false);
         setNewDoctor("");
+        toast.success("New Doctor added successfully");
       }
     } catch (error) {
       console.error("Error adding new doctor:", error);
@@ -622,34 +589,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
 
   // handle symptoms start
   // Handle symptoms from edit-tags page
-  // useEffect(() => {
-  //   const { selectedsymptoms } = router.query;
-
-  //   if (selectedsymptoms && typeof selectedsymptoms === "string") {
-  //     try {
-  //       const parsedSymptoms = JSON.parse(selectedsymptoms);
-  //       // Update both state and localStorage
-  //       setSelectedSymptoms(parsedSymptoms);
-  //       localStorage.setItem(
-  //         "selectedSymptoms",
-  //         JSON.stringify(parsedSymptoms)
-  //       );
-
-  //       // Clean up the URL
-  //       const { selectedsymptoms: _, ...restQuery } = router.query;
-  //       router.replace(
-  //         {
-  //           pathname: router.pathname,
-  //           query: restQuery,
-  //         },
-  //         undefined,
-  //         { shallow: true }
-  //       );
-  //     } catch (error) {
-  //       console.error("Error parsing selected symptoms:", error);
-  //     }
-  //   }
-  // }, [router.query.selectedsymptoms]); // Only run when selectedsymptoms changes
+ 
   useEffect(() => {
     const { selectedsymptoms } = router.query;
 
@@ -758,7 +698,6 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
     infinite: false,
     speed: 500,
     slidesToShow: formData.images.length >= 3 ? 3 : formData.images.length + 1, // Add space for + Add Image
-    // slidesToShow: formData.images.length >= 3 ? 3 : formData.images.length + 1, // Add space for + Add Image
     slidesToScroll: 1,
     arrows: true,
   };
@@ -775,6 +714,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
   };
 
   const navigateToAddTags = () => {
+   
     router.push({
       pathname: `/view-patient/${patientId}`,
       query: {
@@ -810,12 +750,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
       hasError = true;
     }
 
-    // if (selectedSymptoms.length === 0) {
-    //   errors.symptoms = "At least one symptom is required";
-
-    //   hasError = true;
-
-    // }
+   
 
     // Check if there are any images (either from API or uploaded)
     const apiImages = formData.images.filter((img) => img.id);
@@ -933,7 +868,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
         </h5>
         <Link
           href={`/view-patient/${patientId}?tab=prescription`}
-          className="btn-patient-sm-add"
+          className="btn-patient-sm-add close-btn"
         >
           Cancel
         </Link>
@@ -1241,21 +1176,22 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
                         key={doctor.id}
                         className="d-inline-flex align-items-center"
                         style={{
-                          backgroundColor: "#e9ecef",
+                          backgroundColor: "transparent",
                           padding: "4px 12px",
                           borderRadius: "16px",
-                          fontSize: "14px",
+                          fontSize: "18px",
+                          fontWeight: "600",
                         }}
                       >
                         {doctor.name}
                         <button
                           type="button"
                           onClick={() => removeDoctor(doctor.id)}
-                          className="btn btn-link p-0 ms-2"
+                          className="btn btn-link p-0"
                           style={{
                             textDecoration: "none",
                             color: "#6c757d",
-                            fontSize: "16px",
+                            fontSize: "22px",
                             lineHeight: 1,
                           }}
                         >
@@ -1298,19 +1234,19 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
                             className="form-control form-control-sm"
                             placeholder="Search or add new doctor"
                             autoFocus
-                            style={{ maxHeight: 30, fontWeight: 400 }}
+                            style={{ maxHeight: 45, fontWeight: 400 }}
                           />
                           {newDoctor && (
                             <button
-                              className="btn btn-sm"
+                              className="add-new-btn"
                               onClick={handleAddNewDoctor}
                               style={{
-                                height: 38,
+                                height: 45,
                                 padding: 0,
                                 paddingRight: 10,
                               }}
                             >
-                              <FontAwesomeIcon icon={faPlus} color="#1A72E8" />
+                              + Add
                             </button>
                           )}
                         </div>
