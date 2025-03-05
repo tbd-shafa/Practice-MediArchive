@@ -34,6 +34,7 @@ const LabReportEditAttachment: FC<LabReportEditProps> = ({ patientId, labReportI
       // Get current state from URL
       const currentDate = router.query.currentDate as string;
       const currentDoctors = router.query.currentDoctors as string;
+      const clearTestNames = router.query.clearTestNames as string;
   
       router.push({
         pathname: `/view-patient/${patientId}`,
@@ -42,7 +43,8 @@ const LabReportEditAttachment: FC<LabReportEditProps> = ({ patientId, labReportI
           tab: "lab-report",
           labReportId,
           currentDate,
-          currentDoctors
+          currentDoctors,
+          clearTestNames
         },
       });
     });
@@ -56,7 +58,7 @@ const LabReportEditAttachment: FC<LabReportEditProps> = ({ patientId, labReportI
           <span className="icon lab-report"></span> Edit LabReports
         </h5>
         <Link
-          href={`/view-patient/${patientId}?view=edit&tab=lab-report&labReportId=${labReportId}`}
+          href={`/view-patient/${patientId}?view=edit&tab=lab-report&labReportId=${labReportId}&currentDate=${router.query.currentDate}&currentDoctors=${router.query.currentDoctors}&clearTestNames=${router.query.clearTestNames}`}
           className="btn-patient-sm-add close-btn"
         >
           Close
