@@ -142,7 +142,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
         setFormData((prev) => ({
           ...prev,
-          date: response.data.date,
+          //date: response.data.date,
           images: [...apiImages, ...filteredUploadedImages],
           doctors: response.data.doctors,
           test_names: response.data.test_names,
@@ -190,13 +190,21 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           }
         }
         // Only set the date from API if there's no date in localStorage
+        // const storedDate = getLocalStorage("selectedDate");
+        // if (!storedDate) {
+        //   setSelectedDate(new Date(data.date));
+        //   localStorage.setItem(
+        //     "selectedDate",
+        //     new Date(data.date).toISOString()
+        //   );
+        // }
+        
         const storedDate = getLocalStorage("selectedDate");
-        if (!storedDate) {
+        if (storedDate) {
+          setSelectedDate(new Date(storedDate));
+        } else {
           setSelectedDate(new Date(data.date));
-          localStorage.setItem(
-            "selectedDate",
-            new Date(data.date).toISOString()
-          );
+          localStorage.setItem("selectedDate", new Date(data.date).toISOString());
         }
 
         setLoading(false);
@@ -208,7 +216,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     };
 
     fetchLabReport();
-  }, [labReportId, removedApiTestNameIds]);
+  }, [labReportId]);
 
   // handle doctor selection start
   useEffect(() => {
@@ -285,6 +293,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   };
 
   const handleAddNewDoctor = async () => {
+    event.preventDefault();
     if (!newDoctor.trim()) return;
 
     try {
@@ -310,6 +319,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
         setShowDoctorsList(false);
         setNewDoctor("");
+        toast.success("New Doctor added successfully");
       }
     } catch (error) {
       console.error("Error adding new doctor:", error);
@@ -343,7 +353,9 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     if (updatedDoctors.length === 0) {
       setIsSelfSelected(false);
     }
+    
   };
+
 
   // handle doctor selection end
 
