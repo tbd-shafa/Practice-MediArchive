@@ -142,32 +142,56 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
 
         setFormData((prev) => ({
           ...prev,
-          //date: response.data.date,
           images: [...apiImages, ...filteredUploadedImages],
           doctors: response.data.doctors,
           test_names: response.data.test_names,
         }));
 
-        // Check for locally selected doctor first
-        const storedDoctors = getLocalStorage("selectedDoctorsLabReportEdit");
+        // Check for current state in URL first
+        const currentDate = router.query.currentDate as string;
+        const currentDoctors = router.query.currentDoctors as string;
 
-        if (storedDoctors && storedDoctors.length > 0) {
-          // If we have a locally selected doctor, keep using that
-          setSelectedDoctorsLabReportEdit(storedDoctors);
-        } else if (data.doctor) {
-          // Only set the API doctor if no local selection exists
-          const doctorData = {
-            id: data.doctor.id,
-            name: data.doctor.name,
-            client_id: data.client_id,
-            created_at: data.created_at,
-            updated_at: data.updated_at,
-          };
-          setSelectedDoctorsLabReportEdit([doctorData]);
-          localStorage.setItem(
-            "selectedDoctorsLabReportEdit",
-            JSON.stringify([doctorData])
-          );
+        if (currentDate) {
+          setSelectedDate(new Date(currentDate));
+        } else {
+          // Check for locally selected doctor first
+          const storedDoctors = getLocalStorage("selectedDoctorsLabReportEdit");
+
+          if (storedDoctors && storedDoctors.length > 0) {
+            // If we have a locally selected doctor, keep using that
+            setSelectedDoctorsLabReportEdit(storedDoctors);
+          } else if (data.doctor) {
+            // Only set the API doctor if no local selection exists
+            const doctorData = {
+              id: data.doctor.id,
+              name: data.doctor.name,
+              client_id: data.client_id,
+              created_at: data.created_at,
+              updated_at: data.updated_at,
+            };
+            setSelectedDoctorsLabReportEdit([doctorData]);
+            localStorage.setItem(
+              "selectedDoctorsLabReportEdit",
+              JSON.stringify([doctorData])
+            );
+          }
+
+          const storedDate = getLocalStorage("selectedDate");
+          if (storedDate) {
+            setSelectedDate(new Date(storedDate));
+          } else {
+            setSelectedDate(new Date(data.date));
+            localStorage.setItem("selectedDate", new Date(data.date).toISOString());
+          }
+        }
+
+        if (currentDoctors) {
+          try {
+            const parsedDoctors = JSON.parse(currentDoctors);
+            setSelectedDoctorsLabReportEdit(parsedDoctors);
+          } catch (error) {
+            console.error("Error parsing current doctors:", error);
+          }
         }
 
         if (data.test_names && Array.isArray(data.test_names)) {
@@ -189,34 +213,16 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
             );
           }
         }
-        // Only set the date from API if there's no date in localStorage
-        // const storedDate = getLocalStorage("selectedDate");
-        // if (!storedDate) {
-        //   setSelectedDate(new Date(data.date));
-        //   localStorage.setItem(
-        //     "selectedDate",
-        //     new Date(data.date).toISOString()
-        //   );
-        // }
-        
-        const storedDate = getLocalStorage("selectedDate");
-        if (storedDate) {
-          setSelectedDate(new Date(storedDate));
-        } else {
-          setSelectedDate(new Date(data.date));
-          localStorage.setItem("selectedDate", new Date(data.date).toISOString());
-        }
 
         setLoading(false);
       } catch (error) {
         console.error("Failed to fetch labreport:", error);
-
         setLoading(false);
       }
     };
 
     fetchLabReport();
-  }, [labReportId]);
+  }, [labReportId, router.query.currentDate, router.query.currentDoctors]);
 
   // handle doctor selection start
   useEffect(() => {
@@ -770,6 +776,8 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         view: "edit",
         tab: "lab-report",
         imageAttachment: "true",
+        currentDate: selectedDate.toISOString(),
+        currentDoctors: JSON.stringify(selectedDoctorsLabReportEdit)
       },
     });
   };
@@ -779,10 +787,12 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       pathname: `/view-patient/${patientId}`,
       query: {
         ...router.query,
-        view: "edit", // Change from 'add' to 'edit'
+        view: "edit",
         tab: "lab-report",
-        editTags: "true", // Update query parameter
-        labReportId, // Ensure the labReportId ID is included
+        editTags: "true",
+        labReportId,
+        currentDate: selectedDate.toISOString(),
+        currentDoctors: JSON.stringify(selectedDoctorsLabReportEdit)
       },
     });
   };
