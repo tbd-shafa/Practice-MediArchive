@@ -197,8 +197,13 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         if (data.test_names && Array.isArray(data.test_names)) {
           // Check for locally stored test_names first
           const storedTest_names = getLocalStorage("selectedTest_names");
+          const isCleared = router.query.clearTestNames === "true";
 
-          if (storedTest_names && storedTest_names.length > 0) {
+          if (isCleared) {
+            // If test names were cleared, set empty array
+            setSelectedTest_names([]);
+            localStorage.setItem("selectedTest_names", JSON.stringify([]));
+          } else if (storedTest_names && storedTest_names.length > 0) {
             // If we have locally stored test_names, use those instead of API data
             setSelectedTest_names(storedTest_names);
           } else {
@@ -222,7 +227,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     };
 
     fetchLabReport();
-  }, [labReportId, router.query.currentDate, router.query.currentDoctors]);
+  }, [labReportId, router.query.currentDate, router.query.currentDoctors, router.query.clearTestNames]);
 
   // handle doctor selection start
   useEffect(() => {
