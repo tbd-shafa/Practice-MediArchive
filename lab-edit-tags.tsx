@@ -93,7 +93,7 @@ const LabReportEditTags: FC<LabReportEditTagsProps> = ({ patientId, labReportId 
   };
 
   const handleDone = () => {
-    // First update localStorage
+    // First update localStorage with current selection (even if empty)
     localStorage.setItem("selectedTest_names", JSON.stringify(selectedTest_names));
     
     // Get current state from URL
@@ -109,7 +109,8 @@ const LabReportEditTags: FC<LabReportEditTagsProps> = ({ patientId, labReportId 
         labReportId,
         selectedtest_names: JSON.stringify(selectedTest_names),
         currentDate,
-        currentDoctors
+        currentDoctors,
+        clearTestNames: selectedTest_names.length === 0 ? "true" : "false" // Add flag to indicate if test names were cleared
       },
     });
   };
@@ -122,7 +123,7 @@ const LabReportEditTags: FC<LabReportEditTagsProps> = ({ patientId, labReportId 
           <span className="icon lab-report"></span> Edit LabReport Tags
         </h5>
         <Link
-          href={`/view-patient/${patientId}?view=edit&tab=lab-report&labReportId=${labReportId}`}
+          href={`/view-patient/${patientId}?view=edit&tab=lab-report&labReportId=${labReportId}&currentDate=${router.query.currentDate}&currentDoctors=${router.query.currentDoctors}`}
           className="btn-patient-sm-add close-btn"
         >
           Close
