@@ -104,7 +104,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
   // Add this state at the top of your component
   const [loadingImages, setLoadingImages] = useState<{ [key: number]: boolean }>({});
 
-  // Fetch prescription data only on mount
+  // Fetch prescription data only on mount and when not in edit flow
   useEffect(() => {
     const fetchPrescription = async () => {
       try {
@@ -178,7 +178,11 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
       }
     };
 
-    fetchPrescription();
+    // Check if we're in the edit flow
+    const { imageAttachment, editTags } = router.query;
+    if (!imageAttachment && !editTags) {
+      fetchPrescription();
+    }
   }, [prescriptionId]);
 
   // handle doctor selection start
@@ -648,6 +652,11 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
     arrows: true,
   };
   const navigateToImageAttachment = () => {
+    // Save current state before navigation
+    localStorage.setItem("selectedDate", selectedDate.toISOString());
+    localStorage.setItem("selectedDoctors", JSON.stringify(selectedDoctors));
+    localStorage.setItem("selectedSymptoms", JSON.stringify(selectedSymptoms));
+
     router.push({
       pathname: `/view-patient/${patientId}`,
       query: {
@@ -660,15 +669,19 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
   };
 
   const navigateToAddTags = () => {
-   
+    // Save current state before navigation
+    localStorage.setItem("selectedDate", selectedDate.toISOString());
+    localStorage.setItem("selectedDoctors", JSON.stringify(selectedDoctors));
+    localStorage.setItem("selectedSymptoms", JSON.stringify(selectedSymptoms));
+
     router.push({
       pathname: `/view-patient/${patientId}`,
       query: {
         ...router.query,
-        view: "edit", // Change from 'add' to 'edit'
+        view: "edit",
         tab: "prescription",
-        editTags: "true", // Update query parameter
-        prescriptionId, // Ensure the prescription ID is included
+        editTags: "true",
+        prescriptionId,
       },
     });
   };
