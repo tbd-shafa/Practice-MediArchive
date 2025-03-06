@@ -70,14 +70,19 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   };
 
   const [test_names, setTest_names] = useState<Test_name[]>([]);
-  const [selectedTest_names, setSelectedTest_names] = useState<Test_name[]>([]);
+  const [selectedTest_names, setSelectedTest_names] = useState<Test_name[]>(() => {
+    const storedTest_names = getLocalStorage("selectedTest_names");
+    return storedTest_names || [];
+  });
   const [showTest_namesList, setShowTest_namesList] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [isLoadingTest_names, setIsLoadingTest_names] = useState(true);
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [selectedDoctorsLabReportEdit, setSelectedDoctorsLabReportEdit] =
-    useState<Doctor[]>([]);
+  const [selectedDoctorsLabReportEdit, setSelectedDoctorsLabReportEdit] = useState<Doctor[]>(() => {
+    const storedDoctors = getLocalStorage("selectedDoctorsLabReportEdit");
+    return storedDoctors || [];
+  });
   const [showDoctorsList, setShowDoctorsList] = useState(false);
   const [newDoctor, setNewDoctor] = useState("");
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
@@ -107,7 +112,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
   const [loadingImages, setLoadingImages] = useState<{
     [key: number]: boolean;
   }>({});
-  // Fetch lab report data on component mount
+  // Fetch lab report data only on mount and when not in edit flow
   useEffect(() => {
     const fetchLabReport = async () => {
       try {
@@ -115,7 +120,8 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           `${config.API_ENDPOINTS.LAB_REPORT}/${labReportId}/`
         );
         const data = response.data;
-
+        const storedDate = getLocalStorage("selectedDate");
+        
         // Get existing uploaded images from localStorage
         const storedImages = getLocalStorage("LabReportImages");
         const uploadedImages = storedImages ? storedImages : [];
@@ -147,76 +153,31 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
           test_names: response.data.test_names,
         }));
 
-        // Check for current state in URL first
-        const currentDate = router.query.currentDate as string;
-        const currentDoctors = router.query.currentDoctors as string;
-
-        if (currentDate) {
-          setSelectedDate(new Date(currentDate));
-        } else {
-          // Check for locally selected doctor first
-          const storedDoctors = getLocalStorage("selectedDoctorsLabReportEdit");
-
-          if (storedDoctors && storedDoctors.length > 0) {
-            // If we have a locally selected doctor, keep using that
-            setSelectedDoctorsLabReportEdit(storedDoctors);
-          } else if (data.doctor) {
-            // Only set the API doctor if no local selection exists
-            const doctorData = {
-              id: data.doctor.id,
-              name: data.doctor.name,
-              client_id: data.client_id,
-              created_at: data.created_at,
-              updated_at: data.updated_at,
-            };
-            setSelectedDoctorsLabReportEdit([doctorData]);
-            localStorage.setItem(
-              "selectedDoctorsLabReportEdit",
-              JSON.stringify([doctorData])
-            );
-          }
-
-          const storedDate = getLocalStorage("selectedDate");
-          if (storedDate) {
-            setSelectedDate(new Date(storedDate));
-          } else {
-            setSelectedDate(new Date(data.date));
-            localStorage.setItem("selectedDate", new Date(data.date).toISOString());
-          }
+        // Only set initial values if localStorage is empty
+        if (!getLocalStorage("selectedDoctorsLabReportEdit") && data.doctor) {
+          const doctorData = {
+            id: data.doctor.id,
+            name: data.doctor.name,
+            client_id: data.client_id,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+          };
+          setSelectedDoctorsLabReportEdit([doctorData]);
+          localStorage.setItem("selectedDoctorsLabReportEdit", JSON.stringify([doctorData]));
         }
 
-        if (currentDoctors) {
-          try {
-            const parsedDoctors = JSON.parse(currentDoctors);
-            setSelectedDoctorsLabReportEdit(parsedDoctors);
-          } catch (error) {
-            console.error("Error parsing current doctors:", error);
-          }
+        if (!getLocalStorage("selectedTest_names") && data.test_names && Array.isArray(data.test_names)) {
+          const apiTestNames = data.test_names.filter(
+            (test: any) => !removedApiTestNameIds.includes(test.id)
+          );
+          setSelectedTest_names(apiTestNames);
+          localStorage.setItem("selectedTest_names", JSON.stringify(apiTestNames));
         }
 
-        if (data.test_names && Array.isArray(data.test_names)) {
-          // Check for locally stored test_names first
-          const storedTest_names = getLocalStorage("selectedTest_names");
-          const isCleared = router.query.clearTestNames === "true";
-
-          if (isCleared) {
-            // If test names were cleared, set empty array
-            setSelectedTest_names([]);
-            localStorage.setItem("selectedTest_names", JSON.stringify([]));
-          } else if (storedTest_names && storedTest_names.length > 0) {
-            // If we have locally stored test_names, use those instead of API data
-            setSelectedTest_names(storedTest_names);
-          } else {
-            // If no local storage, use API data
-            const apiTestNames = data.test_names.filter(
-              (test: any) => !removedApiTestNameIds.includes(test.id)
-            );
-            setSelectedTest_names(apiTestNames);
-            localStorage.setItem(
-              "selectedTest_names",
-              JSON.stringify(apiTestNames)
-            );
-          }
+        if (!storedDate) {
+          const newDate = new Date(data.date);
+          setSelectedDate(newDate);
+          localStorage.setItem("selectedDate", newDate.toISOString());
         }
 
         setLoading(false);
@@ -226,8 +187,12 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
       }
     };
 
-    fetchLabReport();
-  }, [labReportId, router.query.currentDate, router.query.currentDoctors, router.query.clearTestNames]);
+    // Check if we're in the edit flow
+    const { imageAttachment, editTags } = router.query;
+    if (!imageAttachment && !editTags) {
+      fetchLabReport();
+    }
+  }, [labReportId, router.query]);
 
   // handle doctor selection start
   useEffect(() => {
@@ -722,21 +687,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     setNewTag("");
   };
 
-  const handleAddNewTest_name = async () => {
-    if (!newTag.trim()) return;
 
-    try {
-      const response = await LabReportService.createTestName(newTag.trim());
-      if (response.status === "success" && response.data) {
-        setTest_names((prev) => [...prev, response.data]);
-        handleTest_nameselect(response.data);
-        toast.success("Test name added successfully");
-      }
-    } catch (error) {
-      console.error("Error adding new test name:", error);
-      toast.error("Failed to add new test name");
-    }
-  };
   // Modify removeTestName to update localStorage
   const removeTest_name = (test_nameId: number) => {
     // Check if this is an API test name (exists in formData.test_names)
@@ -774,6 +725,11 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     arrows: true,
   };
   const navigateToImageAttachment = () => {
+    // Save current state before navigation
+    localStorage.setItem("selectedDate", selectedDate.toISOString());
+    localStorage.setItem("selectedDoctorsLabReportEdit", JSON.stringify(selectedDoctorsLabReportEdit));
+    localStorage.setItem("selectedTest_names", JSON.stringify(selectedTest_names));
+
     router.push({
       pathname: `/view-patient/${patientId}`,
       query: {
@@ -781,13 +737,16 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         view: "edit",
         tab: "lab-report",
         imageAttachment: "true",
-        currentDate: selectedDate.toISOString(),
-        currentDoctors: JSON.stringify(selectedDoctorsLabReportEdit)
       },
     });
   };
 
   const navigateToAddTags = () => {
+    // Save current state before navigation
+    localStorage.setItem("selectedDate", selectedDate.toISOString());
+    localStorage.setItem("selectedDoctorsLabReportEdit", JSON.stringify(selectedDoctorsLabReportEdit));
+    localStorage.setItem("selectedTest_names", JSON.stringify(selectedTest_names));
+
     router.push({
       pathname: `/view-patient/${patientId}`,
       query: {
@@ -796,18 +755,9 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
         tab: "lab-report",
         editTags: "true",
         labReportId,
-        currentDate: selectedDate.toISOString(),
-        currentDoctors: JSON.stringify(selectedDoctorsLabReportEdit)
       },
     });
   };
-
-  useEffect(() => {
-    const storedDate = getLocalStorage("selectedDate");
-    if (storedDate) {
-      setSelectedDate(new Date(storedDate)); // Set the stored date
-    }
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -906,31 +856,6 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
     }
   };
 
-  useEffect(() => {
-    // Cleanup function that runs when component unmounts
-    return () => {
-      // Only clear if navigating away from edit-related routes
-      const currentPath = window.location.pathname;
-      const currentQuery = new URLSearchParams(window.location.search);
-
-      const isStillInEditFlow =
-        currentPath.includes("/view-patient") &&
-        currentQuery.get("tab") === "lab-report" &&
-        currentQuery.get("view") === "edit" &&
-        (currentQuery.get("labReportId") ||
-          currentQuery.get("editTags") === "true" ||
-          currentQuery.get("imageAttachment") === "true");
-
-      if (!isStillInEditFlow) {
-        localStorage.removeItem("LabReportImages");
-        localStorage.removeItem("selectedTest_names");
-        localStorage.removeItem("selectedDoctorsLabReportEdit");
-        localStorage.removeItem("selectedDate");
-        localStorage.removeItem("removedLabReportApiImages");
-        localStorage.removeItem("removedLabReportTestNames");
-      }
-    };
-  }, []);
 
   return (
     <>
@@ -1497,7 +1422,7 @@ const LabReportEdit: React.FC<LabReportEditProps> = ({
                             <button
                               type="button"
                               className="btn btn-primary btn-sm"
-                              onClick={handleAddNewTest_name}
+                              
                             >
                               <FontAwesomeIcon icon={faPlus} />
                             </button>
