@@ -28,28 +28,20 @@ interface Image {
   url: string;
 }
 
-// Utility function to safely access localStorage
-// const getLocalStorage = (key: string, defaultValue: any = null) => {
-//   if (typeof window !== 'undefined') {
-//     const stored = localStorage.getItem(key);
-//     return stored ? JSON.parse(stored) : defaultValue;
-//   }
-//   return defaultValue;
-// };
-
+// Helper function to get data from localStorage
 const getLocalStorage = (key: string, defaultValue: any = null) => {
   if (typeof window !== "undefined") {
     const stored = localStorage.getItem(key);
-    if (!stored) return defaultValue; // যদি key না থাকে, defaultValue রিটার্ন করবে
+    if (!stored) return defaultValue;
 
     try {
       return JSON.parse(stored);
     } catch (error) {
       console.error(`Invalid JSON in localStorage for key: ${key}`, error);
-      return defaultValue; // যদি JSON ভুল হয়, তাহলে defaultValue রিটার্ন করবে
+      return defaultValue; 
     }
   }
-  return defaultValue; // যদি window না থাকে (SSR), defaultValue রিটার্ন করবে
+  return defaultValue;
 };
 
 const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
@@ -66,24 +58,28 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
+  // Initialize states from localStorage first
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const storedDate = getLocalStorage("selectedDate");
     return storedDate ? new Date(storedDate) : new Date();
   });
 
-  const handleDateChange = (date: Date) => {
-    setSelectedDate(date);
-    localStorage.setItem("selectedDate", date.toISOString()); // Store the date in localStorage
-  };
+  const [selectedDoctors, setSelectedDoctors] = useState<Doctor[]>(() => {
+    const storedDoctors = getLocalStorage("selectedDoctors");
+    return storedDoctors || [];
+  });
+
+  const [selectedSymptoms, setSelectedSymptoms] = useState<Symptom[]>(() => {
+    const storedSymptoms = getLocalStorage("selectedSymptoms");
+    return storedSymptoms || [];
+  });
 
   const [symptoms, setSymptoms] = useState<Symptom[]>([]);
-  const [selectedSymptoms, setSelectedSymptoms] = useState<Symptom[]>([]);
   const [showSymptomsList, setShowSymptomsList] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [isLoadingSymptoms, setIsLoadingSymptoms] = useState(true);
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [selectedDoctors, setSelectedDoctors] = useState<Doctor[]>([]);
   const [showDoctorsList, setShowDoctorsList] = useState(false);
   const [newDoctor, setNewDoctor] = useState("");
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
@@ -148,11 +144,8 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
           symptoms: response.data.symptoms,
         }));
 
-        // Initialize doctors
-        const storedDoctors = getLocalStorage("selectedDoctors");
-        if (storedDoctors && storedDoctors.length > 0) {
-          setSelectedDoctors(storedDoctors);
-        } else if (data.doctor) {
+        // Only set initial values if localStorage is empty
+        if (!getLocalStorage("selectedDoctors") && data.doctor) {
           const doctorData = {
             id: data.doctor.id,
             name: data.doctor.name,
@@ -164,27 +157,18 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
           localStorage.setItem("selectedDoctors", JSON.stringify([doctorData]));
         }
 
-        // Initialize symptoms
-        if (data.symptoms && Array.isArray(data.symptoms)) {
-          const storedSymptoms = getLocalStorage("selectedSymptoms");
-          if (storedSymptoms && storedSymptoms.length > 0) {
-            setSelectedSymptoms(storedSymptoms);
-          } else {
-            const apiSymptoms = data.symptoms.filter(
-              (test: any) => !removedApiSymptomIds.includes(test.id)
-            );
-            setSelectedSymptoms(apiSymptoms);
-            localStorage.setItem("selectedSymptoms", JSON.stringify(apiSymptoms));
-          }
+        if (!getLocalStorage("selectedSymptoms") && data.symptoms && Array.isArray(data.symptoms)) {
+          const apiSymptoms = data.symptoms.filter(
+            (test: any) => !removedApiSymptomIds.includes(test.id)
+          );
+          setSelectedSymptoms(apiSymptoms);
+          localStorage.setItem("selectedSymptoms", JSON.stringify(apiSymptoms));
         }
 
-        // Initialize date
-        const storedDate = getLocalStorage("selectedDate");
-        if (storedDate) {
-          setSelectedDate(new Date(storedDate));
-        } else {
-          setSelectedDate(new Date(data.date));
-          localStorage.setItem("selectedDate", new Date(data.date).toISOString());
+        if (!getLocalStorage("selectedDate") && data.date) {
+          const newDate = new Date(data.date);
+          setSelectedDate(newDate);
+          localStorage.setItem("selectedDate", newDate.toISOString());
         }
 
         setLoading(false);
@@ -195,18 +179,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
     };
 
     fetchPrescription();
-  }, [prescriptionId]); // Remove removedApiSymptomIds from dependencies
-
-  // Handle symptom removal separately
-  useEffect(() => {
-    if (formData.symptoms) {
-      const updatedSymptoms = selectedSymptoms.filter(
-        symptom => !removedApiSymptomIds.includes(symptom.id)
-      );
-      setSelectedSymptoms(updatedSymptoms);
-      localStorage.setItem("selectedSymptoms", JSON.stringify(updatedSymptoms));
-    }
-  }, [removedApiSymptomIds]);
+  }, [prescriptionId]);
 
   // handle doctor selection start
   useEffect(() => {
@@ -218,7 +191,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
           setDoctors(response.data);
         }
       } catch (error) {
-        console.error("Error fetching doctors:", error);
+        
         toast.error("Failed to fetch doctors");
       } finally {
         setIsLoadingDoctors(false);
@@ -271,18 +244,6 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
       toast.error("Failed to add new doctor");
     }
   };
-
-  useEffect(() => {
-    const storedDoctors = getLocalStorage("selectedDoctors");
-    if (storedDoctors) {
-      try {
-        const parsedDoctors = storedDoctors;
-        setSelectedDoctors(parsedDoctors);
-      } catch (error) {
-        console.error("Error parsing stored doctors:", error);
-      }
-    }
-  }, []);
 
   const removeDoctor = (doctorId: number) => {
     setSelectedDoctors([]);
@@ -588,7 +549,6 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
   // handle image end
 
   // handle symptoms start
-  // Handle symptoms from edit-tags page
  
   useEffect(() => {
     const { selectedsymptoms } = router.query;
@@ -650,21 +610,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
     setNewTag("");
   };
 
-  const handleAddNewSymptom = async () => {
-    if (!newTag.trim()) return;
 
-    try {
-      const response = await PrescriptionService.createSymptom(newTag.trim());
-      if (response.status === "success" && response.data) {
-        setSymptoms((prev) => [...prev, response.data]);
-        handleSymptomSelect(response.data);
-        toast.success("Symptom added successfully");
-      }
-    } catch (error) {
-      console.error("Error adding new SYMPTOM name:", error);
-      toast.error("Failed to add new SYMPTOM name");
-    }
-  };
 
   const removeSymptom = (symptomId: number) => {
     // Check if this is an API Symptoms (exists in formData.symptoms)
@@ -827,31 +773,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
       setIsSaving(false);
     }
   };
-  useEffect(() => {
-    // Cleanup function that runs when component unmounts
-    return () => {
-      // Only clear if navigating away from edit-related routes
-      const currentPath = window.location.pathname;
-      const currentQuery = new URLSearchParams(window.location.search);
 
-      const isStillInEditFlow =
-        currentPath.includes("/view-patient") &&
-        currentQuery.get("tab") === "prescription" &&
-        currentQuery.get("view") === "edit" &&
-        (currentQuery.get("prescriptionId") ||
-          currentQuery.get("editTags") === "true" ||
-          currentQuery.get("imageAttachment") === "true");
-
-      if (!isStillInEditFlow) {
-        localStorage.removeItem("PrescriptionImages");
-        localStorage.removeItem("selectedSymptoms");
-        localStorage.removeItem("selectedDoctors");
-        localStorage.removeItem("selectedDate");
-        localStorage.removeItem("removedPrescriptionApiImages");
-        localStorage.removeItem("removedPrescriptionSymptoms");
-      }
-    };
-  }, []);
   return (
     <>
       {loading && (
@@ -1143,7 +1065,10 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
                   <DatePicker
                     selected={selectedDate}
                     //onChange={(date: Date) => setSelectedDate(date)}
-                    onChange={handleDateChange}
+                    onChange={(date: Date) => {
+                      setSelectedDate(date);
+                      localStorage.setItem("selectedDate", date.toISOString());
+                    }}
                     dateFormat="dd MMMM yyyy"
                     className={`form-control ${
                       formErrors.date ? "is-invalid" : ""
@@ -1382,7 +1307,7 @@ const PrescriptionEdit: React.FC<PrescriptionEditProps> = ({
                             <button
                               type="button"
                               className="btn btn-primary btn-sm"
-                              onClick={handleAddNewSymptom}
+                             
                             >
                               <FontAwesomeIcon icon={faPlus} />
                             </button>
