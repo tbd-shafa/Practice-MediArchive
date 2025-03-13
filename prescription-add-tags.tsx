@@ -96,17 +96,19 @@ const PrescriptionAdd: FC<PrescriptionAddProps> = ({ patientId }) => {
     }
   };
   const handleDone = () => {
-    // Navigate back to add.tsx with selected test names
+    // Store selected symptoms in localStorage
+    localStorage.setItem("selectedSymptoms", JSON.stringify(selectedsymptoms));
+    
+    // Navigate back to add.tsx
     router.push({
       pathname: `/view-patient/${patientId}`,
       query: {
         view: "add",
-        tab: "prescription",
-        selectedsymptoms: JSON.stringify(selectedsymptoms)
+        tab: "prescription"
       }
     });
   };
- 
+  
   return (
     <>
     <ToastContainer />
